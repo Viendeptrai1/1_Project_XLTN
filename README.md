@@ -228,6 +228,6 @@ DTW(i,j) = cost(i,j) + min(DTW(i-1,j), DTW(i,j-1), DTW(i-1,j-1))
 
 ---
 
-**Author**: Your Name  
+**Author**: Vien dep trai  
 **Version**: 1.0.0  
 **License**: MIT
