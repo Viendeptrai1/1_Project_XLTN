@@ -7,9 +7,13 @@ import numpy as np
 
 def snr(original, separated):
     """
-    Compute Signal-to-Noise Ratio
+    Calculate Signal-to-Noise Ratio with amplitude normalization
     
     SNR = 10 * log10(||s||^2 / ||s - s_hat||^2)
+    
+    Now includes:
+    - Amplitude normalization (fixes scaling issue)
+    - Phase inversion handling (fixes phase flip)
     
     Parameters:
     -----------
@@ -21,50 +25,89 @@ def snr(original, separated):
     Returns:
     --------
     snr_db : float
-        SNR in decibels
+       SNR in decibels (more accurate, reflects perceptual quality)
     """
-    signal_power = np.sum(original ** 2)
-    noise = original - separated
-    noise_power = np.sum(noise ** 2)
+    # Ensure same length
+    min_len = min(len(original), len(separated))
+    original = original[:min_len]
+    separated = separated[:min_len]
     
-    if noise_power < 1e-10:
-        return np.inf
+    # IMPORTANT: Normalize amplitude to fix scaling issue!
+    # Scale separated to match original's RMS energy
+    original_rms = np.sqrt(np.mean(original ** 2))
+    separated_rms = np.sqrt(np.mean(separated ** 2))
     
-    snr_db = 10 * np.log10(signal_power / noise_power)
+    if separated_rms > 1e-10:  # Avoid division by zero
+        separated = separated * (original_rms / separated_rms)
     
-    return snr_db
+    # Try both normal and inverted phase, use better one
+    noise_normal = original - separated
+    noise_inverted = original - (-separated)
+    
+    power_noise_normal = np.sum(noise_normal ** 2)
+    power_noise_inverted = np.sum(noise_inverted ** 2)
+    
+    # Use the phase that gives less noise
+    noise = noise_normal if power_noise_normal < power_noise_inverted else noise_inverted
+    
+    power_signal = np.sum(original ** 2)
+    power_noise = np.sum(noise ** 2)
+    
+    if power_noise < 1e-10:
+        return 100.0  # Perfect separation
+    
+    snr_value = 10 * np.log10(power_signal / power_noise)
+    return snr_value
 
 
-def sdr(original, separated):
+def sdr(reference, estimated):
     """
-    Compute Signal-to-Distortion Ratio
+    Calculate Signal-to-Distortion Ratio (Simplified version)
+    With amplitude normalization for better accuracy
     
     SDR = 10 * log10(||s_target||^2 / ||e_interf + e_artif||^2)
     
     Parameters:
     -----------
-    original : np.ndarray
-        Original source signal
-    separated : np.ndarray
-        Separated signal
+    reference : np.ndarray
+        Reference signal
+    estimated : np.ndarray
+        Estimated signal
         
     Returns:
     --------
     sdr_db : float
         SDR in decibels
     """
-    target = original
-    target_power = np.sum(target ** 2)
+    # Ensure same length
+    min_len = min(len(reference), len(estimated))
+    reference = reference[:min_len]
+    estimated = estimated[:min_len]
     
-    distortion = separated - original
-    distortion_power = np.sum(distortion ** 2)
+    # Normalize amplitude
+    ref_rms = np.sqrt(np.mean(reference ** 2))
+    est_rms = np.sqrt(np.mean(estimated ** 2))
     
-    if distortion_power < 1e-10:
-        return np.inf
+    if est_rms > 1e-10:
+        estimated = estimated * (ref_rms / est_rms)
     
-    sdr_db = 10 * np.log10(target_power / distortion_power)
+    # Try both phases
+    distortion_normal = reference - estimated
+    distortion_inverted = reference - (-estimated)
     
-    return sdr_db
+    power_dist_normal = np.sum(distortion_normal ** 2)
+    power_dist_inverted = np.sum(distortion_inverted ** 2)
+    
+    distortion = distortion_normal if power_dist_normal < power_dist_inverted else distortion_inverted
+    
+    power_reference = np.sum(reference ** 2)
+    power_distortion = np.sum(distortion ** 2)
+    
+    if power_distortion < 1e-10:
+        return 100.0
+    
+    sdr_value = 10 * np.log10(power_reference / power_distortion)
+    return sdr_value
 
 
 def permutation_solver(sources, separated_sources):
