@@ -1,0 +1,93 @@
+    def _update_mixture_selector(self):
+        """Update mixture selector dropdown after mixtures are generated"""
+        if self.mixtures is not None:
+            n_mixtures = len(self.mixtures)
+            values = [f"Mixture {i+1}" for i in range(n_mixtures)]
+            self.mixture_selector['values'] = values
+            if values:
+                self.mixture_selector.current(0)
+    
+    def _run_single_channel(self):
+        """Run single-channel separation"""
+        if self.mixtures is None:
+            messages.showwarning("Warning", "Please generate mixtures first (Tab 1)")
+            return
+        
+        # Get selected mixture
+        mix_idx = int(self.mixture_selector_var.get().split()[-1]) - 1
+        mixture = self.mixtures[mix_idx]
+        
+        n_sources = self.n_sources_var.get()
+        method = self.single_method_var.get()
+        
+        self.single_status_label.config(text=f"Running {method}...", foreground="blue")
+        self.root.update()
+        
+        try:
+            # Run separation
+            if method == 'Binary Masking':
+                separator = SparseSeparation(n_sources=n_sources)
+            else:  # Sparse NMF
+                separator = SparseNMFSeparation(n_sources=n_sources)
+            
+            sources = separator.separate(mixture, sr=self.sample_rate)
+            
+            # Store results
+            self.single_sources = sources
+            
+            self.single_status_label.config(text=f"✓ {method} completed", foreground="green")
+            
+            # Display results
+            self._display_single_results()
+            
+            messagebox.showinfo("Success", f"Separated 1 mixture into {len(sources)} sources!")
+            
+        except Exception as e:
+            self.single_status_label.config(text="❌ Error", foreground="red")
+            messagebox.showerror("Error", f"{method} failed:\\n{e}")
+    
+    def _display_single_results(self):
+        """Display single-channel separation results"""
+        self.single_results_text.config(state=tk.NORMAL)
+        self.single_results_text.delete(1.0, tk.END)
+        
+        self.single_results_text.insert(tk.END, "=== Single-Channel Separation Results ===\\n\\n")
+        
+        mix_idx = int(self.mixture_selector_var.get().split()[-1]) - 1
+        self.single_results_text.insert(tk.END, f"Input: Mixture {mix_idx+1}\\n")
+        self.single_results_text.insert(tk.END, f"Method: {self.single_method_var.get()}\\n")
+        self.single_results_text.insert(tk.END, f"Number of sources: {len(self.single_sources)}\\n\\n")
+        
+        # Show each source with play button
+        for i, source in enumerate(self.single_sources):
+            energy = np.sum(source ** 2)
+            
+            self.single_results_text.insert(tk.END, f"Source {i+1}:\\n")
+            self.single_results_text.insert(tk.END, f"  Energy: {energy:.2e}\\n")
+            self.single_results_text.insert(tk.END, f"  Duration: {len(source) / self.sample_rate:.2f}s\\n")
+            
+            # Play button
+            btn = ttk.Button(
+                self.single_results_text,
+                text=f"▶️ Play Source {i+1}",
+                command=lambda idx=i: self._play_single_source(idx)
+            )
+            self.single_results_text.window_create(tk.END, window=btn)
+            self.single_results_text.insert(tk.END, "\\n\\n")
+        
+        self.single_results_text.insert(tk.END, "=" * 60 + "\\n")
+        self.single_results_text.insert(tk.END, "Note: SNR will be lower than multi-channel (3-8 dB)\\n")
+        self.single_results_text.insert(tk.END, "This is expected for single-channel separation!\\n")
+        
+        self.single_results_text.config(state=tk.DISABLED)
+    
+    def _play_single_source(self, source_idx):
+        """Play separated source from single-channel"""
+        if not hasattr(self, 'single_sources'):
+            return
+        
+        try:
+            sd.stop()
+            sd.play(self.single_sources[source_idx], self.sample_rate)
+        except Exception as e:
+            messagebox.showerror("Playback Error", f"Could not play source:\\n{e}")

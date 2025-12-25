@@ -1,6 +1,6 @@
 """
-Simplified Main GUI Application Window
-Audio Source Separation System using FastICA
+Simplified Main GUI Application Window  
+Audio Source Separation - FastICA + Single-Channel
 """
 
 import tkinter as tk
@@ -12,6 +12,7 @@ import sounddevice as sd
 from ..signal_processing import load_wav, save_wav, create_mixtures, pad_signals
 from ..features import mfcc
 from ..ica import FastICA
+from ..single_channel import SparseSeparation, SparseNMFSeparation
 from ..evaluation import snr, sdr, permutation_solver
 from ..recognition import DTWClassifier
 from ..visualization import plot_comparison
@@ -66,12 +67,15 @@ class AudioSeparationApp:
         
         self.tab_selection = ttk.Frame(notebook)
         self.tab_separation = ttk.Frame(notebook)
+        self.tab_single = ttk.Frame(notebook)
         
         notebook.add(self.tab_selection, text="1. Audio Selection & Mixing")
-        notebook.add(self.tab_separation, text="2. ICA Separation & Results")
+        notebook.add(self.tab_separation, text="2. Multi-Channel Separation")
+        notebook.add(self.tab_single, text="3. Single-Channel Separation")
         
         self._create_selection_tab()
         self._create_separation_tab()
+        self._create_single_channel_tab()
     
     def _create_selection_tab(self):
         """Create audio selection tab with checkboxes"""
@@ -150,7 +154,7 @@ class AudioSeparationApp:
         self.plot_mixing.pack(fill=tk.BOTH, expand=True)
     
     def _create_separation_tab(self):
-        """Create ICA separation tab with auto-results"""
+        """Create FastICA separation tab"""
         # Parameters
         param_frame = ttk.LabelFrame(self.tab_separation, text="FastICA Parameters", padding=10)
         param_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
@@ -165,7 +169,7 @@ class AudioSeparationApp:
         
         ttk.Button(
             param_frame,
-            text="▶️ Run FastICA",
+            text="▶️ Run Separation",
             command=self._run_fastica
         ).pack(side=tk.LEFT, padx=20)
         
@@ -322,7 +326,7 @@ class AudioSeparationApp:
             messagebox.showerror("Error", f"Could not generate mixtures:\\n{e}")
     
     def _run_fastica(self):
-        """Run FastICA and auto-compute results"""
+        """Run FastICA separation"""
         if self.mixtures is None:
             messagebox.showwarning("Warning", "Please select audio files first (Tab 1)")
             return
@@ -354,7 +358,6 @@ class AudioSeparationApp:
                 foreground="green"
             )
             
-            
             # Auto-compute recognition and metrics
             self._auto_recognition()
             self._auto_metrics()
@@ -363,7 +366,7 @@ class AudioSeparationApp:
             
         except Exception as e:
             self.status_label.config(text="❌ Error", foreground="red")
-            messagebox.showerror("Error", f"FastICA failed:\\n{e}")
+            messagebox.showerror("Error", f"FastICA failed:\n{e}")
     
     def _auto_recognition(self):
         """Automatically recognize separated sources"""
@@ -457,29 +460,173 @@ class AudioSeparationApp:
         self.metrics_text.insert(tk.END, f"Overall Quality: {overall_status}\n")
         
         self.metrics_text.config(state=tk.DISABLED)
+    def _create_single_channel_tab(self):
+        """Create single-channel separation tab"""
+        # Parameters (no instructions)
+        param_frame = ttk.LabelFrame(self.tab_single, text="Parameters", padding=10)
+        param_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Mixture selector
+        mix_frame = ttk.Frame(param_frame)
+        mix_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(mix_frame, text="Select Mixture:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=5)
+        
+        self.mixture_selector_var = tk.StringVar(value="Mixture 1")
+        self.mixture_selector = ttk.Combobox(
+            mix_frame,
+            textvariable=self.mixture_selector_var,
+            state='readonly',
+            width=30
+        )
+        self.mixture_selector.pack(side=tk.LEFT, padx=5)
+        
+        # Number of sources
+        sources_frame = ttk.Frame(param_frame)
+        sources_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(sources_frame, text="Number of Sources:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=5)
+        
+        self.n_sources_var = tk.IntVar(value=2)
+        ttk.Spinbox(
+            sources_frame,
+            from_=2,
+            to=5,
+            textvariable=self.n_sources_var,
+            width=10
+        ).pack(side=tk.LEFT, padx=5)
+        
+        # Method selector
+        method_frame = ttk.Frame(param_frame)
+        method_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(method_frame, text="Method:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=5)
+        
+        self.single_method_var = tk.StringVar(value='Binary Masking')
+        
+        ttk.Radiobutton(
+            method_frame,
+            text="Binary Masking (Fast, K-means)",
+            variable=self.single_method_var,
+            value='Binary Masking'
+        ).pack(side=tk.LEFT, padx=10)
+        
+        ttk.Radiobutton(
+            method_frame,
+            text="Sparse NMF (Better quality)",
+            variable=self.single_method_var,
+            value='Sparse NMF'
+        ).pack(side=tk.LEFT, padx=10)
+        
+        # Run button
+        run_frame = ttk.Frame(param_frame)
+        run_frame.pack(fill=tk.X, pady=10)
+        
+        ttk.Button(
+            run_frame,
+            text="▶️ Run Single-Channel Separation",
+            command=self._run_single_channel
+        ).pack(side=tk.LEFT, padx=5)
+        
+        self.single_status_label = ttk.Label(run_frame, text="", foreground="blue")
+        self.single_status_label.pack(side=tk.LEFT, padx=10)
+        
+        # Results
+        results_frame = ttk.LabelFrame(self.tab_single, text="Separated Sources", padding=10)
+        results_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        self.single_results_text = scrolledtext.ScrolledText(results_frame, height=20, width=100)
+        self.single_results_text.pack(fill=tk.BOTH, expand=True)
+    def _update_mixture_selector(self):
+        """Update mixture selector dropdown after mixtures are generated"""
+        if self.mixtures is not None:
+            n_mixtures = len(self.mixtures)
+            values = [f"Mixture {i+1}" for i in range(n_mixtures)]
+            self.mixture_selector['values'] = values
+            if values:
+                self.mixture_selector.current(0)
     
-    def _plot_results(self):
-        """Plot separation results"""
-        fig = self.plot_separation.get_figure()
-        fig.clear()
+    def _run_single_channel(self):
+        """Run single-channel separation"""
+        if self.mixtures is None:
+            messages.showwarning("Warning", "Please generate mixtures first (Tab 1)")
+            return
+        
+        # Get selected mixture
+        mix_idx = int(self.mixture_selector_var.get().split()[-1]) - 1
+        mixture = self.mixtures[mix_idx]
+        
+        n_sources = self.n_sources_var.get()
+        method = self.single_method_var.get()
+        
+        self.single_status_label.config(text=f"Running {method}...", foreground="blue")
+        self.root.update()
         
         try:
-            plot_comparison(
-                self.audio_data,
-                self.mixtures,
-                self.separated_sources,
-                self.sample_rate,
-                titles=[f.replace('.wav', '') for f in self.selected_files]
-            )
-            self.plot_separation.update_plot()
+            # Run separation
+            if method == 'Binary Masking':
+                separator = SparseSeparation(n_sources=n_sources)
+            else:  # Sparse NMF
+                separator = SparseNMFSeparation(n_sources=n_sources)
+            
+            sources = separator.separate(mixture, sr=self.sample_rate)
+            
+            # Store results
+            self.single_sources = sources
+            
+            self.single_status_label.config(text=f"✓ {method} completed", foreground="green")
+            
+            # Display results
+            self._display_single_results()
+            
+            messagebox.showinfo("Success", f"Separated 1 mixture into {len(sources)} sources!")
+            
         except Exception as e:
-            print(f"Plot error: {e}")
-            # Simple fallback plot
-            n = len(self.separated_sources)
-            for i in range(min(3, n)):
-                ax = fig.add_subplot(3, 1, i+1)
-                ax.plot(self.separated_sources[i][:5000])
-                ax.set_title(f"Separated: {self.selected_files[i]}")
-                ax.set_ylabel("Amplitude")
-            fig.tight_layout()
-            self.plot_separation.update_plot()
+            self.single_status_label.config(text="❌ Error", foreground="red")
+            messagebox.showerror("Error", f"{method} failed:\\n{e}")
+    
+    def _display_single_results(self):
+        """Display single-channel separation results"""
+        self.single_results_text.config(state=tk.NORMAL)
+        self.single_results_text.delete(1.0, tk.END)
+        
+        self.single_results_text.insert(tk.END, "=== Single-Channel Separation Results ===\n\n")
+        
+        mix_idx = int(self.mixture_selector_var.get().split()[-1]) - 1
+        self.single_results_text.insert(tk.END, f"Input: Mixture {mix_idx+1}\n")
+        self.single_results_text.insert(tk.END, f"Method: {self.single_method_var.get()}\n")
+        self.single_results_text.insert(tk.END, f"Number of sources: {len(self.single_sources)}\n\n")
+        
+        # Show each source with play button
+        for i, source in enumerate(self.single_sources):
+            energy = np.sum(source ** 2)
+            
+            self.single_results_text.insert(tk.END, f"Source {i+1}:\n")
+            self.single_results_text.insert(tk.END, f"  Energy: {energy:.2e}\n")
+            self.single_results_text.insert(tk.END, f"  Duration: {len(source) / self.sample_rate:.2f}s\n")
+            
+            # Play button
+            btn = ttk.Button(
+                self.single_results_text,
+                text=f"▶️ Play Source {i+1}",
+                command=lambda idx=i: self._play_single_source(idx)
+            )
+            self.single_results_text.window_create(tk.END, window=btn)
+            self.single_results_text.insert(tk.END, "\n\n")
+        
+        self.single_results_text.insert(tk.END, "=" * 60 + "\n")
+        self.single_results_text.insert(tk.END, "Note: SNR will be lower than multi-channel (3-8 dB)\n")
+        self.single_results_text.insert(tk.END, "This is expected for single-channel separation!\n")
+        
+        self.single_results_text.config(state=tk.DISABLED)
+    
+    def _play_single_source(self, source_idx):
+        """Play separated source from single-channel"""
+        if not hasattr(self, 'single_sources'):
+            return
+        
+        try:
+            sd.stop()
+            sd.play(self.single_sources[source_idx], self.sample_rate)
+        except Exception as e:
+            messagebox.showerror("Playback Error", f"Could not play source:\\n{e}")
