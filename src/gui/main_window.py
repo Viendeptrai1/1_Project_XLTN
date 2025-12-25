@@ -307,20 +307,74 @@ class AudioSeparationApp:
                 )
                 btn.pack(side=tk.LEFT, padx=5)
             
-            # Plot
+            # Plot - Enhanced intelligent visualization
             fig = self.plot_mixing.get_figure()
             fig.clear()
             
-            # Simple waveform plot
             n_sources = len(sources)
-            for i in range(min(3, n_sources)):  # Show first 3
-                ax = fig.add_subplot(3, 1, i+1)
-                ax.plot(sources[i][:5000])  # First 5000 samples
-                ax.set_title(f"Source: {selected_files[i]}")
-                ax.set_ylabel("Amplitude")
+            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
             
-            fig.tight_layout()
+            # Show up to 5 sources for readability
+            max_display = min(5, n_sources)
+            
+            for i in range(max_display):
+                ax = fig.add_subplot(max_display, 1, i+1)
+                
+                # Get signal info
+                signal = sources[i]
+                n_samples = len(signal)
+                duration = n_samples / self.sample_rate
+                
+                # Intelligent downsampling for smooth display (keep max 10000 points)
+                if n_samples > 10000:
+                    step = max(1, n_samples // 10000)
+                    display_signal = signal[::step]
+                    time_axis = np.arange(0, n_samples, step) / self.sample_rate
+                else:
+                    display_signal = signal
+                    time_axis = np.arange(n_samples) / self.sample_rate
+                
+                # Plot waveform with color
+                ax.plot(time_axis, display_signal, color=colors[i % len(colors)], 
+                       linewidth=0.7, alpha=0.85)
+                
+                # Add subtle envelope for better visualization
+                if len(display_signal) > 100:
+                    envelope = np.abs(display_signal)
+                    ax.fill_between(time_axis, -envelope, envelope, 
+                                   alpha=0.15, color=colors[i % len(colors)])
+                
+                # Styling
+                ax.grid(True, alpha=0.25, linestyle='--', linewidth=0.5)
+                ax.set_ylabel("Amplitude", fontsize=9, fontweight='bold')
+                
+                # Set y-limits with 10% padding
+                y_max = np.abs(signal).max()
+                ax.set_ylim([-1.15 * y_max, 1.15 * y_max])
+                
+                # Title with metadata (no emojis for font compatibility)
+                title_text = f"{selected_files[i]}  |  {duration:.2f}s  |  {self.sample_rate}Hz  |  {n_samples:,} samples"
+                ax.set_title(title_text, fontsize=9, fontweight='bold', pad=8)
+                
+                # Only show x-label on bottom subplot
+                if i == max_display - 1:
+                    ax.set_xlabel("Time (seconds)", fontsize=10, fontweight='bold')
+                else:
+                    ax.set_xticklabels([])
+            
+            # Overall title
+            if n_sources > max_display:
+                fig.suptitle(f"Waveform Preview — Showing {max_display} of {n_sources} Sources", 
+                           fontsize=12, fontweight='bold', y=0.998)
+            else:
+                fig.suptitle(f"Waveform Preview — {n_sources} Source{'s' if n_sources > 1 else ''}", 
+                           fontsize=12, fontweight='bold', y=0.998)
+            
+            fig.tight_layout(rect=[0, 0, 1, 0.99])
             self.plot_mixing.update_plot()
+            
+            # Update Tab 3 mixture selector
+            self._update_mixture_selector()
             
         except Exception as e:
             messagebox.showerror("Error", f"Could not generate mixtures:\\n{e}")
