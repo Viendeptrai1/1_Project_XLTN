@@ -28,5 +28,4 @@ except Exception as e:
     print(f"GUI Error: {e}")
     print("\nIf you see tkinter/macOS errors, try running without GUI:")
     print("  python demo.py")
-    print("  python demo_nmf.py")
     sys.exit(1)

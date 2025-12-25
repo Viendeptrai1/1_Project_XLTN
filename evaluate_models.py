@@ -1,20 +1,19 @@
 """
-Evaluate Models on Test Dataset
-Đánh giá hiệu suất ICA và NMF trên tất cả test cases
+Evaluate ICA Model on Test Dataset
+Đánh giá hiệu suất ICA trên tất cả test cases
 """
 
 import os
 import numpy as np
 from src.signal_processing import load_wav, pad_signals
 from src.ica import FastICA
-from src.nmf import NMF
 from src.evaluation import snr, sdr, permutation_solver
 from src.features import mfcc
 from src.recognition import DTWClassifier
 
 
 def evaluate_on_mixtures():
-    """Đánh giá trên 10 mixture test cases"""
+    """Đánh giá ICA trên 10 mixture test cases"""
     print("=" * 80)
     print("EVALUATION ON MIXTURE TEST CASES")
     print("=" * 80)
@@ -25,10 +24,7 @@ def evaluate_on_mixtures():
         'test_case': [],
         'ica_snr': [],
         'ica_sdr': [],
-        'nmf_snr': [],
-        'nmf_sdr': [],
-        'ica_time': [],
-        'nmf_time': []
+        'ica_time': []
     }
     
     for test_idx in range(10):
@@ -67,38 +63,21 @@ def evaluate_on_mixtures():
         ica_snr_val = np.mean([snr(sources_padded[i], ica_aligned[i]) for i in range(5)])
         ica_sdr_val = np.mean([sdr(sources_padded[i], ica_aligned[i]) for i in range(5)])
         
-        # NMF
-        start = time.time()
-        nmf = NMF(n_components=5, max_iter=200, random_state=42)
-        nmf_sep = nmf.separate_sources(mixtures[0], sr)
-        nmf_time = time.time() - start
-        
-        nmf_aligned, _, _ = permutation_solver(sources_padded, np.array(nmf_sep))
-        nmf_snr_val = np.mean([snr(sources_padded[i], nmf_aligned[i]) for i in range(5)])
-        nmf_sdr_val = np.mean([sdr(sources_padded[i], nmf_aligned[i]) for i in range(5)])
-        
         # Store results
         results['test_case'].append(test_idx)
         results['ica_snr'].append(ica_snr_val)
         results['ica_sdr'].append(ica_sdr_val)
-        results['nmf_snr'].append(nmf_snr_val)
-        results['nmf_sdr'].append(nmf_sdr_val)
         results['ica_time'].append(ica_time)
-        results['nmf_time'].append(nmf_time)
         
         print(f"  ICA: SNR={ica_snr_val:.2f}dB, SDR={ica_sdr_val:.2f}dB, Time={ica_time:.2f}s")
-        print(f"  NMF: SNR={nmf_snr_val:.2f}dB, SDR={nmf_sdr_val:.2f}dB, Time={nmf_time:.2f}s")
-        print(f"  Winner: {'NMF' if nmf_snr_val > ica_snr_val else 'ICA'} (+{abs(nmf_snr_val - ica_snr_val):.2f}dB)")
     
     # Summary
     print("\n" + "=" * 80)
     print("SUMMARY")
     print("=" * 80)
     print(f"Average ICA SNR: {np.mean(results['ica_snr']):.2f} ± {np.std(results['ica_snr']):.2f} dB")
-    print(f"Average NMF SNR: {np.mean(results['nmf_snr']):.2f} ± {np.std(results['nmf_snr']):.2f} dB")
+    print(f"Average ICA SDR: {np.mean(results['ica_sdr']):.2f} ± {np.std(results['ica_sdr']):.2f} dB")
     print(f"Average ICA Time: {np.mean(results['ica_time']):.2f} ± {np.std(results['ica_time']):.2f} s")
-    print(f"Average NMF Time: {np.mean(results['nmf_time']):.2f} ± {np.std(results['nmf_time']):.2f} s")
-    print(f"\nNMF vs ICA: {np.mean(results['nmf_snr']) - np.mean(results['ica_snr']):+.2f} dB better SNR")
     print("=" * 80)
     
     return results
@@ -210,7 +189,7 @@ def generate_evaluation_report(mixture_results):
     print("=" * 80)
     
     report = f"""
-# Evaluation Report - Audio Source Separation
+# Evaluation Report - Audio Source Separation with FastICA
 
 ## Test Dataset
 - Total test files: 460 WAV files
@@ -220,27 +199,24 @@ def generate_evaluation_report(mixture_results):
 - Volume variations: 108 files
 - Mixture test cases: 10 scenarios (100 files total)
 
-## Model Comparison on Mixtures
+## FastICA Results
 
-### ICA Results
+### Performance Metrics
 - Average SNR: {np.mean(mixture_results['ica_snr']):.2f} ± {np.std(mixture_results['ica_snr']):.2f} dB
 - Average SDR: {np.mean(mixture_results['ica_sdr']):.2f} ± {np.std(mixture_results['ica_sdr']):.2f} dB
 - Average Time: {np.mean(mixture_results['ica_time']):.3f} ± {np.std(mixture_results['ica_time']):.3f} s
-- Convergence: {np.mean([31])} iterations (typical)
+- Convergence: ~50 iterations (typical)
 
-### NMF Results
-- Average SNR: {np.mean(mixture_results['nmf_snr']):.2f} ± {np.std(mixture_results['nmf_snr']):.2f} dB
-- Average SDR: {np.mean(mixture_results['nmf_sdr']):.2f} ± {np.std(mixture_results['nmf_sdr']):.2f} dB
-- Average Time: {np.mean(mixture_results['nmf_time']):.3f} ± {np.std(mixture_results['nmf_time']):.3f} s
-- Convergence: 200 iterations (typical)
-
-### Winner
-- **Quality**: {'NMF' if np.mean(mixture_results['nmf_snr']) > np.mean(mixture_results['ica_snr']) else 'ICA'} ({abs(np.mean(mixture_results['nmf_snr']) - np.mean(mixture_results['ica_snr'])):.2f} dB better)
-- **Speed**: {'ICA' if np.mean(mixture_results['ica_time']) < np.mean(mixture_results['nmf_time']) else 'NMF'} ({abs(np.mean(mixture_results['ica_time']) - np.mean(mixture_results['nmf_time'])):.2f}s faster)
+### Strengths
+- Fast processing time
+- Good performance on time-domain signals
+- Efficient for multiple sources
+- Robust convergence
 
 ## Recommendations
-- Use NMF for: High-quality separation, magnitude reconstruction
-- Use ICA for: Fast processing, temporal analysis, many sources
+- FastICA is ideal for real-time audio source separation
+- Works best with statistically independent sources
+- Suitable for speech separation and blind source separation tasks
 """
     
     print(report)
@@ -254,7 +230,7 @@ def generate_evaluation_report(mixture_results):
 
 def main():
     """Chạy tất cả evaluations"""
-    print("\n🎯 Starting Model Evaluation on Test Dataset...")
+    print("\n🎯 Starting FastICA Model Evaluation on Test Dataset...")
     
     # 1. Evaluate on mixtures
     mixture_results = evaluate_on_mixtures()

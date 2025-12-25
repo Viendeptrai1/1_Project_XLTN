@@ -17,13 +17,10 @@ print("\n[1/4] Running Unit Tests...")
 print("-" * 80)
 
 try:
-    from tests import test_ica, test_nmf
+    from tests import test_ica
     
     print("\n>>> FastICA Tests:")
     test_ica.run_all_tests()
-    
-    print("\n>>> NMF Tests:")
-    test_nmf.run_all_tests()
     
     print("\n✓ All unit tests passed!")
 except Exception as e:
@@ -32,13 +29,13 @@ except Exception as e:
     traceback.print_exc()
 
 # 2. Demo
-print("\n[2/4] Running Demo (ICA vs NMF comparison)...")
+print("\n[2/4] Running Demo (ICA pipeline)...")
 print("-" * 80)
 
 try:
-    import demo_nmf
+    import demo
     # Don't run full demo, just show it exists
-    print("✓ demo_nmf.py ready (run manually: python demo_nmf.py)")
+    print("✓ demo.py ready (run manually: python demo.py)")
 except Exception as e:
     print(f"✗ Demo check failed: {e}")
 

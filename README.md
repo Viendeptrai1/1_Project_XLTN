@@ -1,7 +1,7 @@
 # Audio Source Separation - Hệ thống Tách Nguồn Âm Thanh
 
 > **Dự án xử lý tín hiệu số và Machine Learning**  
-> Giải quyết bài toán "Cocktail Party" sử dụng FastICA và NMF  
+> Giải quyết bài toán "Cocktail Party" sử dụng FastICA  
 > Triển khai hoàn toàn từ đầu (from scratch) với NumPy
 
 ---
@@ -28,30 +28,24 @@ Trong môi trường thực tế, chúng ta thường tiếp nhận tín hiệu 
 
 ### Phương pháp tiếp cận
 
-Dự án này triển khai **hai thuật toán** chính để tách nguồn:
+Dự án này triển khai thuật toán **FastICA** (Fast Independent Component Analysis) để tách nguồn:
 
-1. **FastICA** (Fast Independent Component Analysis)
-   - Dựa trên giả định các nguồn độc lập thống kê
-   - Tối ưu hóa non-Gaussianity
-   - Phù hợp cho tín hiệu time-domain
-
-2. **NMF** (Non-negative Matrix Factorization)  
-   - Phân rã ma trận spectrogram không âm
-   - Sử dụng multiplicative update rules
-   - Phù hợp cho tín hiệu frequency-domain
+- Dựa trên giả định các nguồn độc lập thống kê
+- Tối ưu hóa non-Gaussianity
+- Phù hợp cho tín hiệu time-domain
+- Hội tụ nhanh với symmetric decorrelation
 
 ### Kiến trúc tổng quan
 
 ![System Architecture](docs/images/system_architecture.png)
 
-Hệ thống bao gồm 7 module chính:
+Hệ thống bao gồm 6 module chính:
 
 | Module | Chức năng | Công nghệ |
 |--------|-----------|-----------|
 | **Signal Processing** | Đọc/ghi audio, trộn tín hiệu | NumPy, wave module |
 | **Feature Extraction** | Trích xuất MFCC, STFT | NumPy FFT, DSP |
 | **Separation (ICA)** | FastICA algorithm | Contrast functions, decorrelation |
-| **Separation (NMF)** | NMF algorithm | Multiplicative updates |
 | **Evaluation** | Đánh giá chất lượng | SNR, SDR metrics |
 | **Recognition** | Nhận dạng kết quả | DTW classifier |
 | **GUI** | Giao diện người dùng | Tkinter |
@@ -71,13 +65,9 @@ graph TD
     A[Raw Audio Files<br/>WAV Format] --> B[Preprocessing<br/>Centering + Whitening]
     B --> C[Feature Extraction<br/>STFT + MFCC]
     C --> D[Mixing<br/>X = A × S]
-    D --> E{Separation Algorithm}
-    E -->|Time Domain| F[FastICA]
-    E -->|Frequency Domain| G[NMF]
+    D --> F[FastICA]
     F --> H[Permutation Solver]
-    G --> I[Inverse STFT]
     H --> J[Separated Sources]
-    I --> J
     J --> K[Evaluation<br/>SNR/SDR]
     J --> L[Recognition<br/>DTW Classifier]
 ```
@@ -446,153 +436,8 @@ def _ica_parallel(self, X_white):
 
 ---
 
-### 5. NMF Algorithm
 
-![NMF Algorithm](docs/images/nmf_algorithm.png)
-
-#### 5.1. Mô hình
-
-**Mục tiêu**: Phân rã ma trận magnitude spectrogram không âm
-
-$$
-\mathbf{V} \approx \mathbf{W} \mathbf{H}
-$$
-
-Trong đó:
-- $\mathbf{V} \in \mathbb{R}_+^{F \times T}$: Magnitude spectrogram (F frequency bins, T time frames)
-- $\mathbf{W} \in \mathbb{R}_+^{F \times K}$: Basis matrix (spectral templates)
-- $\mathbf{H} \in \mathbb{R}_+^{K \times T}$: Activation matrix (time activations)
-- $K$: Số components (nguồn)
-
-**Constraint**: Tất cả elements $\geq 0$
-
-#### 5.2. Cost Function
-
-**Frobenius norm**:
-
-$$
-\mathcal{L}(\mathbf{W}, \mathbf{H}) = ||\mathbf{V} - \mathbf{W}\mathbf{H}||_F^2 = \sum_{i,j} (V_{ij} - (\mathbf{W}\mathbf{H})_{ij})^2
-$$
-
-**Mục tiêu**: Minimize $\mathcal{L}$ subject to $\mathbf{W} \geq 0, \mathbf{H} \geq 0$
-
-#### 5.3. Multiplicative Update Rules (Lee & Seung, 2001)
-
-**Update H**:
-
-$$
-H_{kj} \leftarrow H_{kj} \frac{(\mathbf{W}^T \mathbf{V})_{kj}}{(\mathbf{W}^T \mathbf{W} \mathbf{H})_{kj} + \epsilon}
-$$
-
-**Update W**:
-
-$$
-W_{ik} \leftarrow W_{ik} \frac{(\mathbf{V} \mathbf{H}^T)_{ik}}{(\mathbf{W} \mathbf{H} \mathbf{H}^T)_{ik} + \epsilon}
-$$
-
-Trong đó:
-- $\epsilon = 10^{-10}$: Tránh chia cho 0
-- $\odot$: Element-wise multiplication
-- $/$ : Element-wise division
-
-**Tính chất**: Update rules đảm bảo:
-1. Non-negativity (nếu init $\geq 0$)
-2. Cost function giảm monotonically
-3. Convergence to local minimum
-
-#### 5.4. Algorithm
-
-**Input**: $\mathbf{V}$, number of components $K$, max iterations
-
-**Output**: $\mathbf{W}$, $\mathbf{H}$
-
-1. **Initialize**: $\mathbf{W}$, $\mathbf{H}$ randomly (all elements $> 0$)
-2. **Repeat** until convergence or max iterations:
-   
-   a. Update $\mathbf{H}$:
-   $$
-   \mathbf{H} = \mathbf{H} \odot \frac{\mathbf{W}^T \mathbf{V}}{\mathbf{W}^T \mathbf{W} \mathbf{H} + \epsilon}
-   $$
-   
-   b. Update $\mathbf{W}$:
-   $$
-   \mathbf{W} = \mathbf{W} \odot \frac{\mathbf{V} \mathbf{H}^T}{\mathbf{W} \mathbf{H} \mathbf{H}^T + \epsilon}
-   $$
-   
-   c. Compute error:
-   $$
-   E = ||\mathbf{V} - \mathbf{W}\mathbf{H}||_F
-   $$
-   
-   d. If $|E_{\text{new}} - E_{\text{old}}| / E_{\text{old}} < \text{tol}$: break
-
-3. **Return**: $\mathbf{W}$, $\mathbf{H}$
-
-**Code implementation**:
-```python
-def _multiplicative_update(self, V, W, H):
-    epsilon = 1e-10
-    
-    # Update H
-    WtV = np.dot(W.T, V)
-    WtWH = np.dot(np.dot(W.T, W), H) + epsilon
-    H = H * (WtV / WtWH)
-    
-    # Update W
-    VHt = np.dot(V, H.T)
-    WHHt = np.dot(np.dot(W, H), H.T) + epsilon
-    W = W * (VHt / WHHt)
-    
-    return W, H
-```
-
-#### 5.5. Source Separation với NMF
-
-**Bước 1**: Tính STFT của mixture
-
-$$
-X(f, t) = \text{STFT}(x(t))
-$$
-
-**Bước 2**: Lấy magnitude spectrogram
-
-$$
-V = |X(f, t)|
-$$
-
-**Bước 3**: NMF decomposition
-
-$$
-V \approx WH
-$$
-
-**Bước 4**: Tách từng source
-
-Mỗi source $k$ được tái tạo từ basis và activation tương ứng:
-
-$$
-V_k = \mathbf{w}_k \mathbf{h}_k^T
-$$
-
-**Bước 5**: Wiener filtering
-
-$$
-\text{Mask}_k(f, t) = \frac{V_k(f, t)}{\sum_{j=1}^K V_j(f, t)}
-$$
-
-$$
-\hat{X}_k(f, t) = \text{Mask}_k(f, t) \cdot X(f, t)
-$$
-
-**Bước 6**: Inverse STFT
-
-$$
-\hat{s}_k(t) = \text{iSTFT}(\hat{X}_k(f, t))
-$$
-
----
-
-### 6. Evaluation Metrics
+### 5. Evaluation Metrics
 
 #### 6.1. Signal-to-Noise Ratio (SNR)
 
@@ -1042,8 +887,6 @@ pip install -r requirements.txt
 │   ├── ica/                     # FastICA implementation
 │   │   ├── fastica.py           # FastICA class
 │   │   └── contrast_functions.py # g, g' functions
-│   ├── nmf/                     # NMF implementation
-│   │   └── nmf.py               # NMF class
 │   ├── evaluation/              # Metrics
 │   │   └── metrics.py           # SNR, SDR, permutation_solver
 │   ├── recognition/             # DTW classifier
@@ -1055,7 +898,6 @@ pip install -r requirements.txt
 │       ├── plot_canvas.py       # Matplotlib canvas
 │       └── audio_player.py      # Audio playback
 ├── demo.py                      # Demo script (no GUI)
-├── demo_nmf.py                  # NMF demo
 ├── main.py                      # GUI application entry point
 ├── run_tests.py                 # Unit tests
 └── README.md
@@ -1144,9 +986,6 @@ for i, source in enumerate(aligned_sources):
 ```bash
 # Test complete pipeline without GUI
 python demo.py
-
-# Test NMF separation
-python demo_nmf.py
 ```
 
 ---
@@ -1274,7 +1113,6 @@ Trong đó:
 📁 Mỗi module độc lập, dễ test và mở rộng:
 ```
 signal_processing/ → features/ → ica/ → evaluation/ → recognition/
-                              ↘ nmf/ ↗
 ```
 
 ### 3. End-to-end Pipeline
@@ -1284,9 +1122,9 @@ signal_processing/ → features/ → ica/ → evaluation/ → recognition/
 Raw Audio → Preprocessing → Mixing → Separation → Alignment → Evaluation → Recognition
 ```
 
-### 4. Dual Algorithm Support
+### 4. FastICA Implementation
 
-🎭 Hỗ trợ cả **FastICA** (time domain) và **NMF** (frequency domain)
+🎭 **FastICA** (time domain) với symmetric decorrelation
 
 ### 5. Comprehensive Evaluation
 
@@ -1306,7 +1144,6 @@ Raw Audio → Preprocessing → Mixing → Separation → Alignment → Evaluati
 - Preprocessing (centering, whitening với PCA)
 - MFCC extraction (STFT → Mel → DCT)
 - FastICA (contrast functions, decorrelation)
-- NMF (multiplicative updates)
 - DTW distance
 - Evaluation metrics
 
@@ -1324,7 +1161,7 @@ Raw Audio → Preprocessing → Mixing → Separation → Alignment → Evaluati
 2. **Lee, D. D., & Seung, H. S. (2001)**  
    *Algorithms for non-negative matrix factorization*  
    Advances in Neural Information Processing Systems, 13.  
-   → NMF multiplicative update rules
+   → Referenced for potential future improvements
 
 3. **Owens, F. J. (2012)**  
    *Signal Processing of Speech*  
@@ -1345,7 +1182,6 @@ Raw Audio → Preprocessing → Mixing → Separation → Alignment → Evaluati
 
 - [FastICA Python Tutorial](https://scikit-learn.org/stable/modules/decomposition.html#ica)
 - [MFCC Tutorial](https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning-filter-banks-mel-frequency-cepstral-coefficients-mfccs.html)
-- [NMF Applications in Audio](https://librosa.org/doc/main/auto_examples/plot_nmf.html)
 
 ---
 
@@ -1355,7 +1191,6 @@ Raw Audio → Preprocessing → Mixing → Separation → Alignment → Evaluati
 
 1. **Thêm algorithms**:
    - Convolutive ICA (cho reverberant mixing)
-   - Complex NMF (preserve phase information)
    - Deep learning approaches (U-Net, Conv-TasNet)
 
 2. **Cải thiện features**:
