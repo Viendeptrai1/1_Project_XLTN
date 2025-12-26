@@ -895,8 +895,7 @@ pip install -r requirements.txt
 │   │   └── plots.py             # Waveform, spectrogram, MFCC plots
 │   └── gui/                     # Tkinter GUI
 │       ├── main_window.py       # Main application window
-│       ├── plot_canvas.py       # Matplotlib canvas
-│       └── audio_player.py      # Audio playback
+│       └── plot_canvas.py       # Matplotlib canvas
 ├── demo.py                      # Demo script (no GUI)
 ├── main.py                      # GUI application entry point
 ├── run_tests.py                 # Unit tests

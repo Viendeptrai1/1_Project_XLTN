@@ -327,20 +327,35 @@ class AudioSeparationApp:
         
         ax = fig.add_subplot(111)
         
+        n_mfcc, n_frames = mfcc_features.shape
+        
         # MFCC shape is (n_mfcc, n_frames), perfect for imshow
         im = ax.imshow(mfcc_features, aspect='auto', origin='lower', 
                       cmap='viridis', interpolation='nearest')
         
-        ax.set_xlabel('Time Frames', fontsize=10, fontweight='bold')
-        ax.set_ylabel('MFCC Coefficients', fontsize=10, fontweight='bold')
-        ax.set_title(f'MFCC Features: {filename}', fontsize=11, fontweight='bold', pad=10)
+        # Better X-axis: show time in seconds
+        frame_rate = 100  # Typical: 100 frames/second
+        time_ticks = ax.get_xticks()
+        time_labels = [f'{t/frame_rate:.1f}s' for t in time_ticks if 0 <= t < n_frames]
+        ax.set_xticks(time_ticks[:len(time_labels)])
+        ax.set_xticklabels(time_labels)
         
-        # Add colorbar
+        # Better Y-axis: show MFCC coefficient numbers
+        ax.set_yticks(range(0, n_mfcc, 2))  # Show every 2nd coefficient
+        ax.set_yticklabels([f'C{i}' for i in range(0, n_mfcc, 2)])
+        
+        ax.set_xlabel('Time (seconds)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('MFCC Coefficient', fontsize=12, fontweight='bold')
+        ax.set_title(f'MFCC Heatmap: {filename}\n({n_mfcc} coeffs × {n_frames} frames)', 
+                    fontsize=13, fontweight='bold', pad=12)
+        
+        # Add colorbar with better label
         cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
-        cbar.set_label('Magnitude', fontsize=9)
+        cbar.set_label('MFCC Value', fontsize=11)
+        cbar.ax.tick_params(labelsize=9)
         
-        # Grid
-        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        # Grid for easier reading
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='white')
         
         fig.tight_layout()
         self.plot_mfcc_canvas.update_plot()
@@ -352,20 +367,37 @@ class AudioSeparationApp:
         
         ax = fig.add_subplot(111)
         
+        n_frames, order = lpc_features.shape
+        
         # LPC shape is (n_frames, order), need transpose for proper display
         im = ax.imshow(lpc_features.T, aspect='auto', origin='lower',
                       cmap='plasma', interpolation='nearest')
         
-        ax.set_xlabel('Time Frames', fontsize=10, fontweight='bold')
-        ax.set_ylabel('LPC Coefficients', fontsize=10, fontweight='bold')
-        ax.set_title(f'LPC Features: {filename}', fontsize=11, fontweight='bold', pad=10)
+        # Better X-axis: show time in seconds  
+        hop_length = 160
+        sr = 16000
+        frame_rate = sr / hop_length  # ~100 frames/second
+        time_ticks = ax.get_xticks()
+        time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < n_frames]
+        ax.set_xticks(time_ticks[:len(time_labels)])
+        ax.set_xticklabels(time_labels)
         
-        # Add colorbar
+        # Better Y-axis: show LPC coefficient numbers
+        ax.set_yticks(range(order))
+        ax.set_yticklabels([f'a{i+1}' for i in range(order)])
+        
+        ax.set_xlabel('Time (seconds)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('LPC Coefficient', fontsize=12, fontweight='bold')
+        ax.set_title(f'LPC Heatmap: {filename}\n({order} coeffs × {n_frames} frames)', 
+                    fontsize=13, fontweight='bold', pad=12)
+        
+        # Add colorbar with better label
         cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
-        cbar.set_label('Magnitude', fontsize=9)
+        cbar.set_label('Coefficient Value', fontsize=11)
+        cbar.ax.tick_params(labelsize=9)
         
         # Grid
-        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='white')
         
         fig.tight_layout()
         self.plot_lpc_canvas.update_plot()
@@ -377,24 +409,44 @@ class AudioSeparationApp:
         
         ax = fig.add_subplot(111)
         
+        freq_bins, time_frames = stft_matrix.shape
+        
         # STFT returns complex values, take magnitude and convert to dB
         magnitude = np.abs(stft_matrix)
         magnitude_db = 20 * np.log10(magnitude + 1e-10)  # Add small value to avoid log(0)
         
         # Plot spectrogram
         im = ax.imshow(magnitude_db, aspect='auto', origin='lower',
-                      cmap='inferno', interpolation='nearest')
+                      cmap='inferno', interpolation='nearest', vmin=-60, vmax=0)
         
-        ax.set_xlabel('Time Frames', fontsize=10, fontweight='bold')
-        ax.set_ylabel('Frequency Bins', fontsize=10, fontweight='bold')
-        ax.set_title(f'STFT Spectrogram: {filename}', fontsize=11, fontweight='bold', pad=10)
+        # Better X-axis: show time in seconds
+        hop_length = 256  # Default STFT hop
+        frame_rate = sr / hop_length
+        time_ticks = ax.get_xticks()
+        time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < time_frames]
+        ax.set_xticks(time_ticks[:len(time_labels)])
+        ax.set_xticklabels(time_labels)
         
-        # Add colorbar
+        # Better Y-axis: show frequency in Hz
+        n_fft = 512  # Default
+        freq_resolution = sr / n_fft
+        freq_ticks = ax.get_yticks()
+        freq_labels = [f'{int(t * freq_resolution)}Hz' for t in freq_ticks if 0 <= t < freq_bins]
+        ax.set_yticks(freq_ticks[:len(freq_labels)])
+        ax.set_yticklabels(freq_labels)
+        
+        ax.set_xlabel('Time (seconds)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Frequency (Hz)', fontsize=12, fontweight='bold')
+        ax.set_title(f'STFT Spectrogram: {filename}\n({freq_bins} bins × {time_frames} frames)', 
+                    fontsize=13, fontweight='bold', pad=12)
+        
+        # Add colorbar with better range
         cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
-        cbar.set_label('Magnitude (dB)', fontsize=9)
+        cbar.set_label('Power (dB)', fontsize=11)
+        cbar.ax.tick_params(labelsize=9)
         
         # Grid
-        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5, color='white')
         
         fig.tight_layout()
         self.plot_stft_canvas.update_plot()
