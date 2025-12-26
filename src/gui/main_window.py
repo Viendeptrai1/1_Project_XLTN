@@ -949,7 +949,7 @@ class AudioSeparationApp:
     def _run_single_channel(self):
         """Run single-channel separation"""
         if self.mixtures is None:
-            messages.showwarning("Warning", "Please generate mixtures first (Tab 1)")
+            messagebox.showwarning("Warning", "Please generate mixtures first (Tab 1)")
             return
         
         # Get selected mixture
