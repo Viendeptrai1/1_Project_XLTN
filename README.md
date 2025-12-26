@@ -782,25 +782,24 @@ Trong đó:
 **Expanded form:**
 
 $$
-\begin{bmatrix}
-x_1[n] \\\\
-x_2[n] \\\\
-\vdots \\\\
-x_N[n]
-\end{bmatrix}
-=
-\begin{bmatrix}
-a_{11} & a_{12} & \cdots & a_{1N} \\\\
-a_{21} & a_{22} & \cdots & a_{2N} \\\\
-\vdots & \vdots & \ddots & \vdots \\\\
-a_{N1} & a_{N2} & \cdots & a_{NN}
-\end{bmatrix}
-\begin{bmatrix}
-s_1[n] \\\\
-s_2[n] \\\\
-\vdots \\\\
-s_N[n]
-\end{bmatrix}
+\begin{aligned}
+x_1[n] &= a_{11} s_1[n] + a_{12} s_2[n] + \cdots + a_{1N} s_N[n] \\
+x_2[n] &= a_{21} s_1[n] + a_{22} s_2[n] + \cdots + a_{2N} s_N[n] \\
+&\vdots \\
+x_N[n] &= a_{N1} s_1[n] + a_{N2} s_2[n] + \cdots + a_{NN} s_N[n]
+\end{aligned}
+$$
+
+Or in matrix form:
+
+$$
+\mathbf{X} = \mathbf{A} \mathbf{S}
+$$
+
+where each element is:
+
+$$
+x_i[n] = \sum_{j=1}^{N} a_{ij} s_j[n]
 $$
 
 **Interpretation:**
