@@ -783,22 +783,22 @@ Trong đó:
 
 $$
 \begin{bmatrix}
-x_1[n] \\
-x_2[n] \\
-\vdots \\
+x_1[n] \\\\
+x_2[n] \\\\
+\vdots \\\\
 x_N[n]
 \end{bmatrix}
 =
 \begin{bmatrix}
-a_{11} & a_{12} & \cdots & a_{1N} \\
-a_{21} & a_{22} & \cdots & a_{2N} \\
-\vdots & \vdots & \ddots & \vdots \\
+a_{11} & a_{12} & \cdots & a_{1N} \\\\
+a_{21} & a_{22} & \cdots & a_{2N} \\\\
+\vdots & \vdots & \ddots & \vdots \\\\
 a_{N1} & a_{N2} & \cdots & a_{NN}
 \end{bmatrix}
 \begin{bmatrix}
-s_1[n] \\
-s_2[n] \\
-\vdots \\
+s_1[n] \\\\
+s_2[n] \\\\
+\vdots \\\\
 s_N[n]
 \end{bmatrix}
 $$
