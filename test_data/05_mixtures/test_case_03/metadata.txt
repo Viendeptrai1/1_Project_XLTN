@@ -1,3 +1,0 @@
-Test Case 3
-Sources: digit_3, digit_4, digit_1, digit_2, digit_7
-Mixing Matrix Shape: (5, 5)

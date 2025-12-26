@@ -10,7 +10,7 @@ import numpy as np
 import sounddevice as sd
 
 from ..signal_processing import load_wav, save_wav, create_mixtures, pad_signals
-from ..features import mfcc
+from ..features import mfcc, lpc, stft
 from ..ica import FastICA
 from ..single_channel import SparseSeparation, SparseNMFSeparation
 from ..evaluation import snr, sdr, permutation_solver
@@ -61,19 +61,22 @@ class AudioSeparationApp:
                                       if f.endswith('.wav')])
     
     def _create_widgets(self):
-        """Create main GUI layout with 2 tabs"""
+        """Create main GUI layout with 4 tabs"""
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         self.tab_selection = ttk.Frame(notebook)
+        self.tab_features = ttk.Frame(notebook)
         self.tab_separation = ttk.Frame(notebook)
         self.tab_single = ttk.Frame(notebook)
         
         notebook.add(self.tab_selection, text="1. Audio Selection & Mixing")
-        notebook.add(self.tab_separation, text="2. Multi-Channel Separation")
-        notebook.add(self.tab_single, text="3. Single-Channel Separation")
+        notebook.add(self.tab_features, text="2. Feature Extraction")
+        notebook.add(self.tab_separation, text="3. Multi-Channel Separation")
+        notebook.add(self.tab_single, text="4. Single-Channel Separation")
         
         self._create_selection_tab()
+        self._create_features_tab()
         self._create_separation_tab()
         self._create_single_channel_tab()
     
@@ -152,6 +155,297 @@ class AudioSeparationApp:
         
         self.plot_mixing = PlotCanvas(plot_frame, figsize=(20, 12))  # HUGE!
         self.plot_mixing.pack(fill=tk.BOTH, expand=True)
+    
+    def _create_features_tab(self):
+        """Create feature extraction visualization tab"""
+        # Parameters frame
+        param_frame = ttk.LabelFrame(self.tab_features, text="Feature Extraction Parameters", padding=10)
+        param_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Audio file selector
+        audio_frame = ttk.Frame(param_frame)
+        audio_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(audio_frame, text="Select Audio File:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=5)
+        
+        self.feature_audio_var = tk.StringVar()
+        if self.available_files:
+            self.feature_audio_var.set(self.available_files[0])
+        
+        self.feature_audio_selector = ttk.Combobox(
+            audio_frame,
+            textvariable=self.feature_audio_var,
+            values=self.available_files,
+            state='readonly',
+            width=40
+        )
+        self.feature_audio_selector.pack(side=tk.LEFT, padx=5)
+        
+        # Feature type selector
+        type_frame = ttk.Frame(param_frame)
+        type_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(type_frame, text="Feature Type:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=5)
+        
+        self.feature_type_var = tk.StringVar(value='Both')
+        
+        ttk.Radiobutton(
+            type_frame,
+            text="MFCC",
+            variable=self.feature_type_var,
+            value='MFCC'
+        ).pack(side=tk.LEFT, padx=10)
+        
+        ttk.Radiobutton(
+            type_frame,
+            text="LPC",
+            variable=self.feature_type_var,
+            value='LPC'
+        ).pack(side=tk.LEFT, padx=10)
+        
+        ttk.Radiobutton(
+            type_frame,
+            text="STFT Spectrogram",
+            variable=self.feature_type_var,
+            value='STFT'
+        ).pack(side=tk.LEFT, padx=10)
+        
+        ttk.Radiobutton(
+            type_frame,
+            text="All (Compare)",
+            variable=self.feature_type_var,
+            value='All'
+        ).pack(side=tk.LEFT, padx=10)
+        
+        # Extract button
+        button_frame = ttk.Frame(param_frame)
+        button_frame.pack(fill=tk.X, pady=10)
+        
+        ttk.Button(
+            button_frame,
+            text="🔬 Extract Features",
+            command=self._extract_features
+        ).pack(side=tk.LEFT, padx=5)
+        
+        self.feature_status_label = ttk.Label(button_frame, text="", foreground="blue")
+        self.feature_status_label.pack(side=tk.LEFT, padx=10)
+        
+        # Plots frame
+        plots_frame = ttk.LabelFrame(self.tab_features, text="Feature Visualization", padding=10)
+        plots_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Configure grid for 3 rows (vertical stacking)
+        plots_frame.columnconfigure(0, weight=1)
+        plots_frame.rowconfigure(0, weight=1)  # MFCC row
+        plots_frame.rowconfigure(1, weight=1)  # LPC row
+        plots_frame.rowconfigure(2, weight=1)  # STFT row
+        
+        # Create three plot canvases stacked vertically
+        self.plot_mfcc_canvas = PlotCanvas(plots_frame, figsize=(14, 4))
+        self.plot_mfcc_canvas.grid(row=0, column=0, sticky='nsew', pady=(0, 3))
+        
+        self.plot_lpc_canvas = PlotCanvas(plots_frame, figsize=(14, 4))
+        self.plot_lpc_canvas.grid(row=1, column=0, sticky='nsew', pady=(3, 3))
+        
+        self.plot_stft_canvas = PlotCanvas(plots_frame, figsize=(14, 4))
+        self.plot_stft_canvas.grid(row=2, column=0, sticky='nsew', pady=(3, 0))
+        
+        # Statistics display
+        stats_frame = ttk.LabelFrame(self.tab_features, text="Feature Statistics & Comparison", padding=10)
+        stats_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        self.feature_stats_text = scrolledtext.ScrolledText(stats_frame, height=8, width=120)
+        self.feature_stats_text.pack(fill=tk.BOTH, expand=True)
+        self.feature_stats_text.insert(tk.END, "Select an audio file and click 'Extract Features' to visualize features.")
+        self.feature_stats_text.config(state=tk.DISABLED)
+    
+    def _extract_features(self):
+        """Extract and visualize features from selected audio"""
+        try:
+            filename = self.feature_audio_var.get()
+            if not filename:
+                messagebox.showwarning("Warning", "Please select an audio file")
+                return
+            
+            self.feature_status_label.config(text="Extracting features...", foreground="blue")
+            self.root.update()
+            
+            # Load audio
+            filepath = os.path.join(self.audio_dir, filename)
+            signal, sr = load_wav(filepath)
+            
+            feature_type = self.feature_type_var.get()
+            
+            # Store for statistics
+            self.current_mfcc = None
+            self.current_lpc = None
+            self.current_stft = None
+            
+            # Extract MFCC
+            if feature_type in ['MFCC', 'All']:
+                self.current_mfcc = mfcc(signal, sr, n_mfcc=13)
+                self._plot_mfcc_heatmap(self.current_mfcc, filename)
+            else:
+                # Clear MFCC plot
+                fig = self.plot_mfcc_canvas.get_figure()
+                fig.clear()
+                self.plot_mfcc_canvas.update_plot()
+            
+            # Extract LPC
+            if feature_type in ['LPC', 'All']:
+                self.current_lpc = lpc(signal, sr, order=12)
+                self._plot_lpc_heatmap(self.current_lpc, filename)
+            else:
+                # Clear LPC plot
+                fig = self.plot_lpc_canvas.get_figure()
+                fig.clear()
+                self.plot_lpc_canvas.update_plot()
+            
+            # Extract STFT
+            if feature_type in ['STFT', 'All']:
+                self.current_stft = stft(signal)
+                self._plot_stft_spectrogram(self.current_stft, filename, sr)
+            else:
+                # Clear STFT plot
+                fig = self.plot_stft_canvas.get_figure()
+                fig.clear()
+                self.plot_stft_canvas.update_plot()
+            
+            # Update statistics
+            self._display_feature_stats(signal, sr, filename)
+            
+            self.feature_status_label.config(text="✓ Extraction completed", foreground="green")
+            
+        except Exception as e:
+            self.feature_status_label.config(text="❌ Error", foreground="red")
+            messagebox.showerror("Error", f"Feature extraction failed:\\n{e}")
+    
+    def _plot_mfcc_heatmap(self, mfcc_features, filename):
+        """Plot MFCC features as heatmap"""
+        fig = self.plot_mfcc_canvas.get_figure()
+        fig.clear()
+        
+        ax = fig.add_subplot(111)
+        
+        # MFCC shape is (n_mfcc, n_frames), perfect for imshow
+        im = ax.imshow(mfcc_features, aspect='auto', origin='lower', 
+                      cmap='viridis', interpolation='nearest')
+        
+        ax.set_xlabel('Time Frames', fontsize=10, fontweight='bold')
+        ax.set_ylabel('MFCC Coefficients', fontsize=10, fontweight='bold')
+        ax.set_title(f'MFCC Features: {filename}', fontsize=11, fontweight='bold', pad=10)
+        
+        # Add colorbar
+        cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+        cbar.set_label('Magnitude', fontsize=9)
+        
+        # Grid
+        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        
+        fig.tight_layout()
+        self.plot_mfcc_canvas.update_plot()
+    
+    def _plot_lpc_heatmap(self, lpc_features, filename):
+        """Plot LPC features as heatmap"""
+        fig = self.plot_lpc_canvas.get_figure()
+        fig.clear()
+        
+        ax = fig.add_subplot(111)
+        
+        # LPC shape is (n_frames, order), need transpose for proper display
+        im = ax.imshow(lpc_features.T, aspect='auto', origin='lower',
+                      cmap='plasma', interpolation='nearest')
+        
+        ax.set_xlabel('Time Frames', fontsize=10, fontweight='bold')
+        ax.set_ylabel('LPC Coefficients', fontsize=10, fontweight='bold')
+        ax.set_title(f'LPC Features: {filename}', fontsize=11, fontweight='bold', pad=10)
+        
+        # Add colorbar
+        cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+        cbar.set_label('Magnitude', fontsize=9)
+        
+        # Grid
+        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        
+        fig.tight_layout()
+        self.plot_lpc_canvas.update_plot()
+    
+    def _plot_stft_spectrogram(self, stft_matrix, filename, sr):
+        """Plot STFT spectrogram"""
+        fig = self.plot_stft_canvas.get_figure()
+        fig.clear()
+        
+        ax = fig.add_subplot(111)
+        
+        # STFT returns complex values, take magnitude and convert to dB
+        magnitude = np.abs(stft_matrix)
+        magnitude_db = 20 * np.log10(magnitude + 1e-10)  # Add small value to avoid log(0)
+        
+        # Plot spectrogram
+        im = ax.imshow(magnitude_db, aspect='auto', origin='lower',
+                      cmap='inferno', interpolation='nearest')
+        
+        ax.set_xlabel('Time Frames', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Frequency Bins', fontsize=10, fontweight='bold')
+        ax.set_title(f'STFT Spectrogram: {filename}', fontsize=11, fontweight='bold', pad=10)
+        
+        # Add colorbar
+        cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+        cbar.set_label('Magnitude (dB)', fontsize=9)
+        
+        # Grid
+        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        
+        fig.tight_layout()
+        self.plot_stft_canvas.update_plot()
+    
+    def _display_feature_stats(self, signal, sr, filename):
+        """Display feature statistics and comparison"""
+        self.feature_stats_text.config(state=tk.NORMAL)
+        self.feature_stats_text.delete(1.0, tk.END)
+        
+        # Audio info
+        duration = len(signal) / sr
+        self.feature_stats_text.insert(tk.END, f"=== Audio File: {filename} ===\\n")
+        self.feature_stats_text.insert(tk.END, f"Duration: {duration:.2f}s  |  Sample Rate: {sr}Hz  |  Samples: {len(signal):,}\\n\\n")
+        
+        # MFCC stats
+        if self.current_mfcc is not None:
+            n_mfcc, n_frames = self.current_mfcc.shape
+            self.feature_stats_text.insert(tk.END, "--- MFCC Features ---\\n")
+            self.feature_stats_text.insert(tk.END, f"Shape: ({n_mfcc} coefficients, {n_frames} frames)\\n")
+            self.feature_stats_text.insert(tk.END, f"Mean: {np.mean(self.current_mfcc):.4f}  |  Std: {np.std(self.current_mfcc):.4f}\\n")
+            self.feature_stats_text.insert(tk.END, f"Min: {np.min(self.current_mfcc):.4f}  |  Max: {np.max(self.current_mfcc):.4f}\\n\\n")
+        
+        # LPC stats
+        if self.current_lpc is not None:
+            n_frames, order = self.current_lpc.shape
+            self.feature_stats_text.insert(tk.END, "--- LPC Features ---\\n")
+            self.feature_stats_text.insert(tk.END, f"Shape: ({n_frames} frames, {order} coefficients)\\n")
+            self.feature_stats_text.insert(tk.END, f"Mean: {np.mean(self.current_lpc):.4f}  |  Std: {np.std(self.current_lpc):.4f}\\n")
+            self.feature_stats_text.insert(tk.END, f"Min: {np.min(self.current_lpc):.4f}  |  Max: {np.max(self.current_lpc):.4f}\\n\\n")
+        
+        # STFT stats
+        if self.current_stft is not None:
+            freq_bins, time_frames = self.current_stft.shape
+            magnitude = np.abs(self.current_stft)
+            self.feature_stats_text.insert(tk.END, "--- STFT Spectrogram ---\\n")
+            self.feature_stats_text.insert(tk.END, f"Shape: ({freq_bins} frequency bins, {time_frames} time frames)\\n")
+            self.feature_stats_text.insert(tk.END, f"Magnitude Mean: {np.mean(magnitude):.4f}  |  Std: {np.std(magnitude):.4f}\\n")
+            self.feature_stats_text.insert(tk.END, f"Magnitude Min: {np.min(magnitude):.4f}  |  Max: {np.max(magnitude):.4f}\\n\\n")
+        
+        # Comparison
+        if sum([self.current_mfcc is not None, self.current_lpc is not None, self.current_stft is not None]) >= 2:
+            self.feature_stats_text.insert(tk.END, "--- Comparison ---\\n")
+            if self.current_mfcc is not None:
+                self.feature_stats_text.insert(tk.END, f"✓ MFCC: {self.current_mfcc.shape[0]} coefficients (mel-frequency cepstral, perceptual)\\n")
+            if self.current_lpc is not None:
+                self.feature_stats_text.insert(tk.END, f"✓ LPC: {self.current_lpc.shape[1]} coefficients (vocal tract model, speech-specific)\\n")
+            if self.current_stft is not None:
+                self.feature_stats_text.insert(tk.END, f"✓ STFT: {self.current_stft.shape[0]} frequency bins (time-frequency representation)\\n")
+            self.feature_stats_text.insert(tk.END, f"✓ All methods capture temporal evolution through frames\\n")
+        
+        self.feature_stats_text.config(state=tk.DISABLED)
     
     def _create_separation_tab(self):
         """Create FastICA separation tab"""
