@@ -134,16 +134,7 @@ Trong đó:
 
 **MFCC** là bộ đặc trưng phổ biến nhất trong nhận dạng tiếng nói vì nó mô phỏng rất sát cách tai người cảm nhận âm thanh. Quy trình MFCC gồm 6 bước chính:
 
-```mermaid
-graph LR
-    A[Audio Signal] --> B[Pre-emphasis]
-    B --> C[Framing & Windowing]
-    C --> D[FFT]
-    D --> E[Mel Filterbank]
-    E --> F[Logarithm]
-    F --> G[DCT]
-    G --> H[MFCC Features]
-```
+![MFCC Pipeline](.gemini/antigravity/brain/2bab40a8-3000-4eeb-b1ef-a49a90ffd607/mfcc_pipeline.png)
 
 ### 2.2. Bước 1: Pre-emphasis (Tiền nhấn)
 
@@ -381,15 +372,7 @@ $$
 
 ### 3.2. Quy trình LPC
 
-```mermaid
-graph LR
-    A[Audio Signal] --> B[Framing 25ms]
-    B --> C[Pre-emphasis]
-    C --> D[Hamming Window]
-    D --> E[Autocorrelation R]
-    E --> F[Levinson-Durbin]
-    F --> G[LPC Coefficients]
-```
+![LPC Pipeline](.gemini/antigravity/brain/2bab40a8-3000-4eeb-b1ef-a49a90ffd607/lpc_pipeline.png)
 
 ### 3.3. Bước 1 & 2: Framing và Pre-emphasis
 
@@ -562,22 +545,7 @@ LPC có thể được sử dụng thay thế MFCC trong:
 
 ### Luồng xử lý trong dự án
 
-```mermaid
-graph TD
-    A[Raw Audio .wav] --> B{Feature Extraction}
-    B --> C[STFT]
-    B --> D[MFCC]
-    B --> E[LPC]
-    
-    C --> F[ICA Multi-channel]
-    C --> G[NMF Single-channel]
-    D --> H[DTW Recognition]
-    E --> I[Formant Analysis]
-    
-    F --> J[Separated Sources]
-    G --> J
-    H --> K[Recognized Digit/Letter]
-```
+![Project Flow](.gemini/antigravity/brain/2bab40a8-3000-4eeb-b1ef-a49a90ffd607/project_flow.png)
 
 ### Tài liệu tham khảo
 
