@@ -1,7 +1,7 @@
 # BÁO CÁO LÝ THUYẾT: FEATURE EXTRACTION (TRÍCH XUẤT ĐẶC TRƯNG)
 **Dự án:** Tách nguồn âm thanh và Nhận dạng tiếng nói  
-**Tác giả:** [Họ tên sinh viên]  
-**Ngày:** 26/12/2025
+**Tác giả:** Phan Quốc Viễn
+ **Ngày:** 26/12/2025
 
 ---
 
