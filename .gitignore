@@ -48,9 +48,6 @@ models/*.pkl
 models/*.h5
 
 
-# Gemini Artifacts Brain
-.gemini/
-
 # Test outputs
 test_output/
 *.png

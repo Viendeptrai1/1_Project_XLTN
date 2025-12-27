@@ -233,21 +233,26 @@ class AudioSeparationApp:
         # Plots frame
         plots_frame = ttk.LabelFrame(self.tab_features, text="Feature Visualization", padding=10)
         plots_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.plots_frame = plots_frame  # Store reference
         
-        # Configure grid for 3 rows (vertical stacking)
-        plots_frame.columnconfigure(0, weight=1)
-        plots_frame.rowconfigure(0, weight=1)  # MFCC row
-        plots_frame.rowconfigure(1, weight=1)  # LPC row
-        plots_frame.rowconfigure(2, weight=1)  # STFT row
+        # Single feature canvas (full size) - for MFCC/LPC/STFT only
+        self.plot_single_canvas = PlotCanvas(plots_frame, figsize=(14, 10))
         
-        # Create three plot canvases stacked vertically
-        self.plot_mfcc_canvas = PlotCanvas(plots_frame, figsize=(14, 4))
+        # Compare mode frame (3 rows)
+        self.compare_frame = ttk.Frame(plots_frame)
+        self.compare_frame.columnconfigure(0, weight=1)
+        self.compare_frame.rowconfigure(0, weight=1)
+        self.compare_frame.rowconfigure(1, weight=1)
+        self.compare_frame.rowconfigure(2, weight=1)
+        
+        # Create three plot canvases for compare mode
+        self.plot_mfcc_canvas = PlotCanvas(self.compare_frame, figsize=(14, 4))
         self.plot_mfcc_canvas.grid(row=0, column=0, sticky='nsew', pady=(0, 3))
         
-        self.plot_lpc_canvas = PlotCanvas(plots_frame, figsize=(14, 4))
+        self.plot_lpc_canvas = PlotCanvas(self.compare_frame, figsize=(14, 4))
         self.plot_lpc_canvas.grid(row=1, column=0, sticky='nsew', pady=(3, 3))
         
-        self.plot_stft_canvas = PlotCanvas(plots_frame, figsize=(14, 4))
+        self.plot_stft_canvas = PlotCanvas(self.compare_frame, figsize=(14, 4))
         self.plot_stft_canvas.grid(row=2, column=0, sticky='nsew', pady=(3, 0))
         
         # Statistics display
@@ -281,35 +286,35 @@ class AudioSeparationApp:
             self.current_lpc = None
             self.current_stft = None
             
-            # Extract MFCC
-            if feature_type in ['MFCC', 'All']:
+            # Switch layout based on feature type
+            if feature_type == 'All':
+                # Compare mode: show 3 small canvases
+                self.plot_single_canvas.pack_forget()
+                self.compare_frame.pack(fill=tk.BOTH, expand=True)
+                
+                # Extract and plot all 3
                 self.current_mfcc = mfcc(signal, sr, n_mfcc=13)
                 self._plot_mfcc_heatmap(self.current_mfcc, filename)
-            else:
-                # Clear MFCC plot
-                fig = self.plot_mfcc_canvas.get_figure()
-                fig.clear()
-                self.plot_mfcc_canvas.update_plot()
-            
-            # Extract LPC
-            if feature_type in ['LPC', 'All']:
+                
                 self.current_lpc = lpc(signal, sr, order=12)
                 self._plot_lpc_heatmap(self.current_lpc, filename)
-            else:
-                # Clear LPC plot
-                fig = self.plot_lpc_canvas.get_figure()
-                fig.clear()
-                self.plot_lpc_canvas.update_plot()
-            
-            # Extract STFT
-            if feature_type in ['STFT', 'All']:
+                
                 self.current_stft = stft(signal)
                 self._plot_stft_spectrogram(self.current_stft, filename, sr)
             else:
-                # Clear STFT plot
-                fig = self.plot_stft_canvas.get_figure()
-                fig.clear()
-                self.plot_stft_canvas.update_plot()
+                # Single mode: show full-size canvas
+                self.compare_frame.pack_forget()
+                self.plot_single_canvas.pack(fill=tk.BOTH, expand=True)
+                
+                if feature_type == 'MFCC':
+                    self.current_mfcc = mfcc(signal, sr, n_mfcc=13)
+                    self._plot_single_feature('mfcc', self.current_mfcc, filename, sr)
+                elif feature_type == 'LPC':
+                    self.current_lpc = lpc(signal, sr, order=12)
+                    self._plot_single_feature('lpc', self.current_lpc, filename, sr)
+                elif feature_type == 'STFT':
+                    self.current_stft = stft(signal)
+                    self._plot_single_feature('stft', self.current_stft, filename, sr)
             
             # Update statistics
             self._display_feature_stats(signal, sr, filename)
@@ -319,6 +324,103 @@ class AudioSeparationApp:
         except Exception as e:
             self.feature_status_label.config(text="❌ Error", foreground="red")
             messagebox.showerror("Error", f"Feature extraction failed:\\n{e}")
+    
+    def _plot_single_feature(self, feature_type, features, filename, sr):
+        """Plot a single feature type in full-size canvas"""
+        fig = self.plot_single_canvas.get_figure()
+        fig.clear()
+        
+        ax = fig.add_subplot(111)
+        
+        if feature_type == 'mfcc':
+            n_mfcc, n_frames = features.shape
+            im = ax.imshow(features, aspect='auto', origin='lower', 
+                          cmap='viridis', interpolation='nearest')
+            
+            # X-axis: time in seconds
+            frame_rate = 100
+            time_ticks = ax.get_xticks()
+            time_labels = [f'{t/frame_rate:.1f}s' for t in time_ticks if 0 <= t < n_frames]
+            ax.set_xticks(time_ticks[:len(time_labels)])
+            ax.set_xticklabels(time_labels, fontsize=11)
+            
+            # Y-axis: MFCC coefficient numbers
+            ax.set_yticks(range(0, n_mfcc, 1))
+            ax.set_yticklabels([f'C{i}' for i in range(0, n_mfcc, 1)], fontsize=11)
+            
+            ax.set_xlabel('Time (seconds)', fontsize=14, fontweight='bold')
+            ax.set_ylabel('MFCC Coefficient', fontsize=14, fontweight='bold')
+            ax.set_title(f'MFCC Heatmap: {filename}\n({n_mfcc} coefficients × {n_frames} frames)', 
+                        fontsize=16, fontweight='bold', pad=15)
+            
+            cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+            cbar.set_label('MFCC Value', fontsize=12)
+            cbar.ax.tick_params(labelsize=10)
+            
+        elif feature_type == 'lpc':
+            n_frames, order = features.shape
+            im = ax.imshow(features.T, aspect='auto', origin='lower',
+                          cmap='plasma', interpolation='nearest')
+            
+            # X-axis: time in seconds
+            hop_length = 160
+            frame_rate = sr / hop_length
+            time_ticks = ax.get_xticks()
+            time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < n_frames]
+            ax.set_xticks(time_ticks[:len(time_labels)])
+            ax.set_xticklabels(time_labels, fontsize=11)
+            
+            # Y-axis: LPC coefficient numbers
+            ax.set_yticks(range(order))
+            ax.set_yticklabels([f'a{i+1}' for i in range(order)], fontsize=11)
+            
+            ax.set_xlabel('Time (seconds)', fontsize=14, fontweight='bold')
+            ax.set_ylabel('LPC Coefficient', fontsize=14, fontweight='bold')
+            ax.set_title(f'LPC Heatmap: {filename}\n({order} coefficients × {n_frames} frames)', 
+                        fontsize=16, fontweight='bold', pad=15)
+            
+            cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+            cbar.set_label('Coefficient Value', fontsize=12)
+            cbar.ax.tick_params(labelsize=10)
+            
+        elif feature_type == 'stft':
+            freq_bins, time_frames = features.shape
+            magnitude = np.abs(features)
+            magnitude_db = 20 * np.log10(magnitude + 1e-10)
+            
+            im = ax.imshow(magnitude_db, aspect='auto', origin='lower',
+                          cmap='inferno', interpolation='nearest', vmin=-60, vmax=0)
+            
+            # X-axis: time in seconds
+            hop_length = 256
+            frame_rate = sr / hop_length
+            time_ticks = ax.get_xticks()
+            time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < time_frames]
+            ax.set_xticks(time_ticks[:len(time_labels)])
+            ax.set_xticklabels(time_labels, fontsize=11)
+            
+            # Y-axis: frequency in Hz
+            n_fft = 512
+            freq_resolution = sr / n_fft
+            freq_ticks = ax.get_yticks()
+            freq_labels = [f'{int(t * freq_resolution)}Hz' for t in freq_ticks if 0 <= t < freq_bins]
+            ax.set_yticks(freq_ticks[:len(freq_labels)])
+            ax.set_yticklabels(freq_labels, fontsize=11)
+            
+            ax.set_xlabel('Time (seconds)', fontsize=14, fontweight='bold')
+            ax.set_ylabel('Frequency (Hz)', fontsize=14, fontweight='bold')
+            ax.set_title(f'STFT Spectrogram: {filename}\n({freq_bins} frequency bins × {time_frames} time frames)', 
+                        fontsize=16, fontweight='bold', pad=15)
+            
+            cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+            cbar.set_label('Power (dB)', fontsize=12)
+            cbar.ax.tick_params(labelsize=10)
+        
+        # Grid
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='white')
+        
+        fig.tight_layout()
+        self.plot_single_canvas.update_plot()
     
     def _plot_mfcc_heatmap(self, mfcc_features, filename):
         """Plot MFCC features as heatmap"""
