@@ -4,8 +4,16 @@
 > Giải quyết bài toán "Cocktail Party" với FastICA  
 > Implementation hoàn toàn từ đầu (from scratch) với NumPy
 
-**Tác giả:** Phan Quốc Viễn  
-**Email:** phanquocvien.123@gmail.com  
+**Nhóm:** Separation  
+**Thành viên:**
+| STT | Họ tên | MSSV |
+|-----|--------|------|
+| 1 | Phan Quốc Viễn | 23110362 |
+| 2 | Đặng Ngọc Tài | 23110304 |
+| 3 | Trương Nhất Nguyên | 23110273 |
+| 4 | Nghiêm Quang Huy | 23110222 |
+| 5 | Nguyễn Hoàng Hà | 23110207 |
+
 **Version:** 1.0.0  
 **Ngày:** December 2025
 

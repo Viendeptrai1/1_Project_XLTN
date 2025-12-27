@@ -7,8 +7,8 @@ Tách nguồn từ 1 mixture duy nhất sử dụng:
 """
 
 import numpy as np
-import librosa
 from sklearn.cluster import KMeans
+from ..features.stft import stft, istft
 
 
 class SparseSeparation:
@@ -31,9 +31,9 @@ class SparseSeparation:
         """Tách 1 mixture thành n nguồn. Trả về list các tín hiệu."""
         print(f"\n[Single-Channel] Tách 1 mixture thành {self.n_sources} sources...")
         
-        # STFT
+        # STFT (dùng hàm tự viết)
         print("[Single-Channel] Step 1: Computing STFT...")
-        X = librosa.stft(mixture, n_fft=self.n_fft, hop_length=self.hop_length)
+        X = stft(mixture, n_fft=self.n_fft, hop_length=self.hop_length)
         magnitude = np.abs(X)
         phase = np.angle(X)
         
@@ -50,7 +50,9 @@ class SparseSeparation:
         for i, mask in enumerate(masks):
             S_magnitude = magnitude * mask
             S_complex = S_magnitude * np.exp(1j * phase)
-            s = librosa.istft(S_complex, hop_length=self.hop_length, length=len(mixture))
+            s = istft(S_complex, hop_length=self.hop_length)
+            # Cắt về đúng độ dài ban đầu
+            s = s[:len(mixture)]
             sources.append(s)
             
             energy = np.sum(s ** 2)
@@ -108,9 +110,9 @@ class SparseNMFSeparation:
         """Tách bằng Sparse NMF. Trả về list các tín hiệu."""
         print(f"\n[Sparse NMF] Tách 1 mixture thành {self.n_sources} sources...")
         
-        # STFT
+        # STFT (dùng hàm tự viết)
         print("[Sparse NMF] Step 1: Computing STFT...")
-        X = librosa.stft(mixture, n_fft=self.n_fft, hop_length=self.hop_length)
+        X = stft(mixture, n_fft=self.n_fft, hop_length=self.hop_length)
         V = np.abs(X)
         phase = np.angle(X)
         
@@ -146,7 +148,9 @@ class SparseNMFSeparation:
             
             V_source = W[:, idx_start:idx_end] @ H[idx_start:idx_end, :]
             S_complex = V_source * np.exp(1j * phase)
-            s = librosa.istft(S_complex, hop_length=self.hop_length, length=len(mixture))
+            s = istft(S_complex, hop_length=self.hop_length)
+            # Cắt về đúng độ dài
+            s = s[:len(mixture)]
             
             sources.append(s)
             

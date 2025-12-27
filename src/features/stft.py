@@ -6,7 +6,7 @@ Biến đổi Fourier trên các cửa sổ ngắn để phân tích thời gian
 import numpy as np
 
 
-def create_window(window_length, window_type='hann'):
+def create_window(window_length, window_type='hamming'):
     """
     Tạo hàm cửa sổ.
     Hỗ trợ: 'hann', 'hamming', 'rectangular'
@@ -25,7 +25,7 @@ def create_window(window_length, window_type='hann'):
     return window
 
 
-def stft(signal, n_fft=512, hop_length=256, window='hann'):
+def stft(signal, n_fft=512, hop_length=256, window='hamming'):
     """
     Tính STFT của tín hiệu.
     
@@ -59,7 +59,7 @@ def stft(signal, n_fft=512, hop_length=256, window='hann'):
     return stft_matrix
 
 
-def istft(stft_matrix, hop_length=256, window='hann'):
+def istft(stft_matrix, hop_length=256, window='hamming'):
     """
     ISTFT - Biến đổi Fourier ngược.
     Tái tạo tín hiệu từ ma trận STFT.
