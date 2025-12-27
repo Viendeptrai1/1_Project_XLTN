@@ -48,13 +48,6 @@ models/*.pkl
 models/*.h5
 
 
-# Test outputs
-test_output/
-*.png
-*.jpg
-iva_test_result.png
-demucs_test_result.png
-
 # macOS
 .DS_Store
 .AppleDouble
