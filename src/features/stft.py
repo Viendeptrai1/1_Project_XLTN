@@ -1,6 +1,6 @@
 """
-Short-Time Fourier Transform (STFT) implementation
-Using NumPy FFT for frequency analysis
+STFT (Short-Time Fourier Transform)
+Biến đổi Fourier trên các cửa sổ ngắn để phân tích thời gian-tần số.
 """
 
 import numpy as np
@@ -8,19 +8,8 @@ import numpy as np
 
 def create_window(window_length, window_type='hann'):
     """
-    Create window function
-    
-    Parameters:
-    -----------
-    window_length : int
-        Length of the window
-    window_type : str
-        Type of window ('hann', 'hamming', 'rectangular')
-        
-    Returns:
-    --------
-    window : np.ndarray
-        Window function
+    Tạo hàm cửa sổ.
+    Hỗ trợ: 'hann', 'hamming', 'rectangular'
     """
     if window_type == 'hann':
         n = np.arange(window_length)
@@ -31,35 +20,26 @@ def create_window(window_length, window_type='hann'):
     elif window_type == 'rectangular':
         window = np.ones(window_length)
     else:
-        raise ValueError(f"Unknown window type: {window_type}")
+        raise ValueError(f"Loại cửa sổ không hợp lệ: {window_type}")
     
     return window
 
 
 def stft(signal, n_fft=512, hop_length=256, window='hann'):
     """
-    Compute Short-Time Fourier Transform
+    Tính STFT của tín hiệu.
     
-    Parameters:
-    -----------
-    signal : np.ndarray
-        Input signal (1D array)
-    n_fft : int
-        FFT size
-    hop_length : int
-        Number of samples between successive frames
-    window : str
-        Window type
-        
-    Returns:
-    --------
-    stft_matrix : np.ndarray
-        Complex STFT matrix (n_fft//2 + 1, n_frames)
+    Tham số:
+        signal: Tín hiệu đầu vào
+        n_fft: Kích thước FFT (mặc định 512)
+        hop_length: Bước nhảy frame (mặc định 256)
+        window: Loại cửa sổ (mặc định 'hann')
+    
+    Trả về:
+        Ma trận STFT phức có shape (n_fft//2 + 1, n_frames)
     """
     window_func = create_window(n_fft, window)
-    
     n_frames = 1 + (len(signal) - n_fft) // hop_length
-    
     stft_matrix = np.zeros((n_fft // 2 + 1, n_frames), dtype=np.complex128)
     
     for frame_idx in range(n_frames):
@@ -73,9 +53,7 @@ def stft(signal, n_fft=512, hop_length=256, window='hann'):
             frame = signal[start:end]
         
         windowed_frame = frame * window_func
-        
         fft_result = np.fft.rfft(windowed_frame)
-        
         stft_matrix[:, frame_idx] = fft_result
     
     return stft_matrix
@@ -83,21 +61,8 @@ def stft(signal, n_fft=512, hop_length=256, window='hann'):
 
 def istft(stft_matrix, hop_length=256, window='hann'):
     """
-    Inverse Short-Time Fourier Transform
-    
-    Parameters:
-    -----------
-    stft_matrix : np.ndarray
-        Complex STFT matrix (n_fft//2 + 1, n_frames)
-    hop_length : int
-        Number of samples between successive frames
-    window : str
-        Window type
-        
-    Returns:
-    --------
-    signal : np.ndarray
-        Reconstructed signal
+    ISTFT - Biến đổi Fourier ngược.
+    Tái tạo tín hiệu từ ma trận STFT.
     """
     n_fft = (stft_matrix.shape[0] - 1) * 2
     n_frames = stft_matrix.shape[1]
@@ -110,10 +75,8 @@ def istft(stft_matrix, hop_length=256, window='hann'):
     
     for frame_idx in range(n_frames):
         ifft_result = np.fft.irfft(stft_matrix[:, frame_idx])
-        
         start = frame_idx * hop_length
         end = start + n_fft
-        
         signal[start:end] += ifft_result * window_func
         window_sum[start:end] += window_func ** 2
     

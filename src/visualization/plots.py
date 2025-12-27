@@ -1,5 +1,5 @@
 """
-Visualization utilities for audio signals and spectrograms
+Các tiện ích trực quan hóa tín hiệu âm thanh và spectrogram
 """
 
 import numpy as np
@@ -8,20 +8,7 @@ from ..features.stft import stft
 
 
 def plot_waveform(signal, sample_rate, title="Waveform", ax=None):
-    """
-    Plot audio waveform
-    
-    Parameters:
-    -----------
-    signal : np.ndarray
-        Audio signal
-    sample_rate : int
-        Sample rate in Hz
-    title : str
-        Plot title
-    ax : matplotlib axis, optional
-        Axis to plot on
-    """
+    """Vẽ dạng sóng âm thanh."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 3))
     
@@ -39,30 +26,12 @@ def plot_waveform(signal, sample_rate, title="Waveform", ax=None):
 
 
 def plot_spectrogram(signal, sample_rate, title="Spectrogram", ax=None, n_fft=512, hop_length=256):
-    """
-    Plot spectrogram
-    
-    Parameters:
-    -----------
-    signal : np.ndarray
-        Audio signal
-    sample_rate : int
-        Sample rate in Hz
-    title : str
-        Plot title
-    ax : matplotlib axis, optional
-        Axis to plot on
-    n_fft : int
-        FFT size
-    hop_length : int
-        Hop length
-    """
+    """Vẽ spectrogram."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4))
     
     stft_matrix = stft(signal, n_fft=n_fft, hop_length=hop_length)
     magnitude = np.abs(stft_matrix)
-    
     magnitude_db = 20 * np.log10(magnitude + 1e-10)
     
     time = np.arange(magnitude_db.shape[1]) * hop_length / sample_rate
@@ -75,7 +44,6 @@ def plot_spectrogram(signal, sample_rate, title="Spectrogram", ax=None, n_fft=51
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Frequency (Hz)')
     ax.set_title(title)
-    
     plt.colorbar(im, ax=ax, label='Magnitude (dB)')
     
     if ax is None:
@@ -85,22 +53,7 @@ def plot_spectrogram(signal, sample_rate, title="Spectrogram", ax=None, n_fft=51
 
 
 def plot_mfcc(mfcc_features, sample_rate, hop_length=256, title="MFCC", ax=None):
-    """
-    Plot MFCC features as heatmap
-    
-    Parameters:
-    -----------
-    mfcc_features : np.ndarray
-        MFCC features (n_mfcc, n_frames)
-    sample_rate : int
-        Sample rate in Hz
-    hop_length : int
-        Hop length
-    title : str
-        Plot title
-    ax : matplotlib axis, optional
-        Axis to plot on
-    """
+    """Vẽ MFCC dạng heatmap."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4))
     
@@ -113,7 +66,6 @@ def plot_mfcc(mfcc_features, sample_rate, hop_length=256, title="MFCC", ax=None)
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('MFCC Coefficient')
     ax.set_title(title)
-    
     plt.colorbar(im, ax=ax, label='Value')
     
     if ax is None:
@@ -123,22 +75,7 @@ def plot_mfcc(mfcc_features, sample_rate, hop_length=256, title="MFCC", ax=None)
 
 
 def plot_comparison(originals, mixtures, separated, sample_rate, titles=None):
-    """
-    Plot comparison of original, mixed, and separated signals
-    
-    Parameters:
-    -----------
-    originals : list of np.ndarray
-        Original source signals
-    mixtures : list of np.ndarray
-        Mixed signals
-    separated : list of np.ndarray
-        Separated signals
-    sample_rate : int
-        Sample rate
-    titles : list of str, optional
-        Titles for each source
-    """
+    """So sánh tín hiệu gốc, hỗn hợp và đã tách."""
     n_sources = len(originals)
     
     fig, axes = plt.subplots(n_sources, 3, figsize=(15, 3 * n_sources))
@@ -164,16 +101,7 @@ def plot_comparison(originals, mixtures, separated, sample_rate, titles=None):
 
 
 def plot_mixing_matrix(matrix, ax=None):
-    """
-    Visualize mixing matrix
-    
-    Parameters:
-    -----------
-    matrix : np.ndarray
-        Mixing matrix
-    ax : matplotlib axis, optional
-        Axis to plot on
-    """
+    """Trực quan hóa ma trận trộn."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 5))
     

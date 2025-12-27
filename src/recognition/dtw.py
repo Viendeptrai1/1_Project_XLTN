@@ -1,5 +1,6 @@
 """
-Dynamic Time Warping (DTW) for speech recognition
+DTW (Dynamic Time Warping) cho nhận dạng giọng nói
+So khớp chuỗi có độ dài khác nhau bằng cách co giãn thời gian.
 """
 
 import numpy as np
@@ -7,19 +8,8 @@ import numpy as np
 
 def dtw_distance(seq1, seq2):
     """
-    Compute DTW distance between two sequences
-    
-    Parameters:
-    -----------
-    seq1 : np.ndarray
-        First sequence (n_frames1, n_features)
-    seq2 : np.ndarray
-        Second sequence (n_frames2, n_features)
-        
-    Returns:
-    --------
-    distance : float
-        DTW distance
+    Tính khoảng cách DTW giữa 2 chuỗi.
+    Trả về giá trị khoảng cách (float).
     """
     if seq1.ndim == 1:
         seq1 = seq1.reshape(-1, 1)
@@ -34,7 +24,6 @@ def dtw_distance(seq1, seq2):
     for i in range(1, n1 + 1):
         for j in range(1, n2 + 1):
             cost = np.linalg.norm(seq1[i - 1] - seq2[j - 1])
-            
             dtw_matrix[i, j] = cost + min(
                 dtw_matrix[i - 1, j],
                 dtw_matrix[i, j - 1],
@@ -46,21 +35,8 @@ def dtw_distance(seq1, seq2):
 
 def dtw_path(seq1, seq2):
     """
-    Compute DTW distance and optimal alignment path
-    
-    Parameters:
-    -----------
-    seq1 : np.ndarray
-        First sequence
-    seq2 : np.ndarray
-        Second sequence
-        
-    Returns:
-    --------
-    distance : float
-        DTW distance
-    path : list of tuples
-        Optimal alignment path
+    Tính khoảng cách DTW và đường căn chỉnh tối ưu.
+    Trả về (distance, path).
     """
     if seq1.ndim == 1:
         seq1 = seq1.reshape(-1, 1)
@@ -75,13 +51,13 @@ def dtw_path(seq1, seq2):
     for i in range(1, n1 + 1):
         for j in range(1, n2 + 1):
             cost = np.linalg.norm(seq1[i - 1] - seq2[j - 1])
-            
             dtw_matrix[i, j] = cost + min(
                 dtw_matrix[i - 1, j],
                 dtw_matrix[i, j - 1],
                 dtw_matrix[i - 1, j - 1]
             )
     
+    # Truy vết đường đi
     i, j = n1, n2
     path = [(i - 1, j - 1)]
     
@@ -109,57 +85,29 @@ def dtw_path(seq1, seq2):
         path.append((i - 1, j - 1))
     
     path.reverse()
-    
     return dtw_matrix[n1, n2], path
 
 
 class DTWClassifier:
-    """
-    DTW-based classifier for speech recognition
-    """
+    """Bộ phân loại dựa trên DTW cho nhận dạng giọng nói."""
     
     def __init__(self):
         self.templates = []
         self.labels = []
     
     def fit(self, X_train, y_train):
-        """
-        Store training templates
-        
-        Parameters:
-        -----------
-        X_train : list of np.ndarray
-            Training sequences (MFCC features)
-        y_train : list
-            Training labels
-        """
+        """Lưu các mẫu huấn luyện (templates)."""
         self.templates = X_train
         self.labels = y_train
-        
         return self
     
     def predict_single(self, x):
-        """
-        Predict label for a single sequence
-        
-        Parameters:
-        -----------
-        x : np.ndarray
-            Test sequence
-            
-        Returns:
-        --------
-        label : str or int
-            Predicted label
-        distance : float
-            Distance to nearest template
-        """
+        """Dự đoán nhãn cho 1 chuỗi. Trả về (nhãn, khoảng_cách)."""
         min_distance = np.inf
         best_label = None
         
         for template, label in zip(self.templates, self.labels):
             distance = dtw_distance(x, template)
-            
             if distance < min_distance:
                 min_distance = distance
                 best_label = label
@@ -167,21 +115,7 @@ class DTWClassifier:
         return best_label, min_distance
     
     def predict(self, X_test):
-        """
-        Predict labels for multiple sequences
-        
-        Parameters:
-        -----------
-        X_test : list of np.ndarray
-            Test sequences
-            
-        Returns:
-        --------
-        predictions : list
-            Predicted labels
-        distances : list
-            Distances to nearest templates
-        """
+        """Dự đoán nhãn cho nhiều chuỗi. Trả về (predictions, distances)."""
         predictions = []
         distances = []
         
@@ -193,24 +127,8 @@ class DTWClassifier:
         return predictions, distances
     
     def score(self, X_test, y_test):
-        """
-        Compute accuracy on test set
-        
-        Parameters:
-        -----------
-        X_test : list of np.ndarray
-            Test sequences
-        y_test : list
-            True labels
-            
-        Returns:
-        --------
-        accuracy : float
-            Classification accuracy
-        """
+        """Tính accuracy trên tập test."""
         predictions, _ = self.predict(X_test)
-        
         correct = sum(pred == true for pred, true in zip(predictions, y_test))
         accuracy = correct / len(y_test)
-        
         return accuracy

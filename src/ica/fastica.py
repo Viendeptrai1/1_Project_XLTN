@@ -1,6 +1,6 @@
 """
-FastICA Algorithm
-Based on: Hyvarinen & Oja (2000) - Independent Component Analysis: Algorithms and Applications
+Thuật toán FastICA - Phân tích thành phần độc lập
+Dựa trên: Hyvarinen & Oja (2000)
 """
 
 import numpy as np
@@ -10,20 +10,14 @@ from .contrast_functions import dg_logcosh, ddg_logcosh
 
 class FastICA:
     """
-    FastICA algorithm for blind source separation
+    FastICA cho phân tách nguồn mù (Blind Source Separation).
     
-    Parameters:
-    -----------
-    n_components : int, optional
-        Number of components to extract (default: None = use all)
-    max_iter : int
-        Maximum number of iterations
-    tol : float
-        Convergence tolerance
-    alpha : float
-        Parameter for logcosh contrast function
-    random_state : int, optional
-        Random seed for reproducibility
+    Tham số:
+        n_components: Số thành phần trích xuất (None = tất cả)
+        max_iter: Số vòng lặp tối đa
+        tol: Ngưỡng hội tụ
+        alpha: Tham số cho hàm logcosh
+        random_state: Seed ngẫu nhiên
     """
     
     def __init__(self, n_components=None, max_iter=200, tol=1e-4, alpha=1.0, random_state=None):
@@ -41,38 +35,13 @@ class FastICA:
         self.n_iter = 0
     
     def _symmetric_decorrelation(self, W):
-        """
-        Symmetric decorrelation: W = (W * W^T)^(-1/2) * W
-        
-        Parameters:
-        -----------
-        W : np.ndarray
-            Weight matrix
-            
-        Returns:
-        --------
-        W_orth : np.ndarray
-            Orthogonalized weight matrix
-        """
+        """Trực giao hóa đối xứng: W = (W * W^T)^(-1/2) * W"""
         U, S, Vt = np.linalg.svd(W, full_matrices=False)
         W_orth = np.dot(U, Vt)
         return W_orth
     
     def _ica_parallel(self, X_white):
-        """
-        Parallel FastICA algorithm
-        Extract all components simultaneously
-        
-        Parameters:
-        -----------
-        X_white : np.ndarray
-            Whitened data (n_components, n_samples)
-            
-        Returns:
-        --------
-        W : np.ndarray
-            Unmixing matrix
-        """
+        """FastICA song song - trích xuất tất cả thành phần cùng lúc"""
         n_components, n_samples = X_white.shape
         
         if self.random_state is not None:
@@ -99,24 +68,12 @@ class FastICA:
                 break
         else:
             self.n_iter = self.max_iter
-            print(f"Warning: FastICA did not converge in {self.max_iter} iterations")
+            print(f"Cảnh báo: FastICA không hội tụ sau {self.max_iter} vòng lặp")
         
         return W
     
     def fit(self, X):
-        """
-        Fit the ICA model
-        
-        Parameters:
-        -----------
-        X : np.ndarray
-            Input data (n_features, n_samples) or (n_samples, n_features)
-            
-        Returns:
-        --------
-        self : FastICA
-            Fitted model
-        """
+        """Huấn luyện mô hình ICA"""
         if X.shape[0] > X.shape[1]:
             X = X.T
         
@@ -134,46 +91,20 @@ class FastICA:
         return self
     
     def transform(self, X):
-        """
-        Separate sources from mixtures
-        
-        Parameters:
-        -----------
-        X : np.ndarray
-            Mixed signals (n_features, n_samples)
-            
-        Returns:
-        --------
-        S : np.ndarray
-            Separated sources (n_components, n_samples)
-        """
+        """Phân tách nguồn từ hỗn hợp"""
         if self.unmixing_matrix is None:
-            raise ValueError("Model has not been fitted yet. Call fit() first.")
+            raise ValueError("Mô hình chưa được huấn luyện. Gọi fit() trước.")
         
         if X.shape[0] > X.shape[1]:
             X = X.T
         
         X_centered = X - self.mean
-        
         X_white = np.dot(self.whitening_matrix, X_centered)
-        
         S = np.dot(self.unmixing_matrix, X_white)
         
         return S
     
     def fit_transform(self, X):
-        """
-        Fit model and separate sources
-        
-        Parameters:
-        -----------
-        X : np.ndarray
-            Mixed signals
-            
-        Returns:
-        --------
-        S : np.ndarray
-            Separated sources
-        """
+        """Huấn luyện và phân tách nguồn"""
         self.fit(X)
         return self.transform(X)
