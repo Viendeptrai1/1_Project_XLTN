@@ -337,12 +337,17 @@ class AudioSeparationApp:
             im = ax.imshow(features, aspect='auto', origin='lower', 
                           cmap='viridis', interpolation='nearest')
             
+            # Set proper limits to avoid white space
+            ax.set_xlim(-0.5, n_frames - 0.5)
+            ax.set_ylim(-0.5, n_mfcc - 0.5)
+            
             # X-axis: time in seconds
             frame_rate = 100
-            time_ticks = ax.get_xticks()
-            time_labels = [f'{t/frame_rate:.1f}s' for t in time_ticks if 0 <= t < n_frames]
-            ax.set_xticks(time_ticks[:len(time_labels)])
-            ax.set_xticklabels(time_labels, fontsize=11)
+            n_xticks = min(8, n_frames)
+            xtick_positions = np.linspace(0, n_frames - 1, n_xticks)
+            xtick_labels = [f'{t/frame_rate:.1f}s' for t in xtick_positions]
+            ax.set_xticks(xtick_positions)
+            ax.set_xticklabels(xtick_labels, fontsize=11)
             
             # Y-axis: MFCC coefficient numbers
             ax.set_yticks(range(0, n_mfcc, 1))
@@ -362,13 +367,19 @@ class AudioSeparationApp:
             im = ax.imshow(features.T, aspect='auto', origin='lower',
                           cmap='plasma', interpolation='nearest')
             
+            # Set proper limits to avoid white space
+            ax.set_xlim(-0.5, n_frames - 0.5)
+            ax.set_ylim(-0.5, order - 0.5)
+            
             # X-axis: time in seconds
             hop_length = 160
             frame_rate = sr / hop_length
-            time_ticks = ax.get_xticks()
-            time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < n_frames]
-            ax.set_xticks(time_ticks[:len(time_labels)])
-            ax.set_xticklabels(time_labels, fontsize=11)
+            # Create evenly spaced ticks
+            n_xticks = min(8, n_frames)
+            xtick_positions = np.linspace(0, n_frames - 1, n_xticks)
+            xtick_labels = [f'{t/frame_rate:.2f}s' for t in xtick_positions]
+            ax.set_xticks(xtick_positions)
+            ax.set_xticklabels(xtick_labels, fontsize=11)
             
             # Y-axis: LPC coefficient numbers
             ax.set_yticks(range(order))
@@ -391,21 +402,27 @@ class AudioSeparationApp:
             im = ax.imshow(magnitude_db, aspect='auto', origin='lower',
                           cmap='inferno', interpolation='nearest', vmin=-60, vmax=0)
             
+            # Set proper limits to avoid white space
+            ax.set_xlim(-0.5, time_frames - 0.5)
+            ax.set_ylim(-0.5, freq_bins - 0.5)
+            
             # X-axis: time in seconds
             hop_length = 256
             frame_rate = sr / hop_length
-            time_ticks = ax.get_xticks()
-            time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < time_frames]
-            ax.set_xticks(time_ticks[:len(time_labels)])
-            ax.set_xticklabels(time_labels, fontsize=11)
+            n_xticks = min(8, time_frames)
+            xtick_positions = np.linspace(0, time_frames - 1, n_xticks)
+            xtick_labels = [f'{t/frame_rate:.2f}s' for t in xtick_positions]
+            ax.set_xticks(xtick_positions)
+            ax.set_xticklabels(xtick_labels, fontsize=11)
             
             # Y-axis: frequency in Hz
             n_fft = 512
             freq_resolution = sr / n_fft
-            freq_ticks = ax.get_yticks()
-            freq_labels = [f'{int(t * freq_resolution)}Hz' for t in freq_ticks if 0 <= t < freq_bins]
-            ax.set_yticks(freq_ticks[:len(freq_labels)])
-            ax.set_yticklabels(freq_labels, fontsize=11)
+            n_yticks = min(8, freq_bins)
+            ytick_positions = np.linspace(0, freq_bins - 1, n_yticks)
+            ytick_labels = [f'{int(t * freq_resolution)}Hz' for t in ytick_positions]
+            ax.set_yticks(ytick_positions)
+            ax.set_yticklabels(ytick_labels, fontsize=11)
             
             ax.set_xlabel('Time (seconds)', fontsize=14, fontweight='bold')
             ax.set_ylabel('Frequency (Hz)', fontsize=14, fontweight='bold')
@@ -435,15 +452,20 @@ class AudioSeparationApp:
         im = ax.imshow(mfcc_features, aspect='auto', origin='lower', 
                       cmap='viridis', interpolation='nearest')
         
-        # Better X-axis: show time in seconds
-        frame_rate = 100  # Typical: 100 frames/second
-        time_ticks = ax.get_xticks()
-        time_labels = [f'{t/frame_rate:.1f}s' for t in time_ticks if 0 <= t < n_frames]
-        ax.set_xticks(time_ticks[:len(time_labels)])
-        ax.set_xticklabels(time_labels)
+        # Set proper limits to avoid white space
+        ax.set_xlim(-0.5, n_frames - 0.5)
+        ax.set_ylim(-0.5, n_mfcc - 0.5)
         
-        # Better Y-axis: show MFCC coefficient numbers
-        ax.set_yticks(range(0, n_mfcc, 2))  # Show every 2nd coefficient
+        # X-axis: time in seconds
+        frame_rate = 100
+        n_xticks = min(8, n_frames)
+        xtick_positions = np.linspace(0, n_frames - 1, n_xticks)
+        xtick_labels = [f'{t/frame_rate:.1f}s' for t in xtick_positions]
+        ax.set_xticks(xtick_positions)
+        ax.set_xticklabels(xtick_labels)
+        
+        # Y-axis: show MFCC coefficient numbers
+        ax.set_yticks(range(0, n_mfcc, 2))
         ax.set_yticklabels([f'C{i}' for i in range(0, n_mfcc, 2)])
         
         ax.set_xlabel('Time (seconds)', fontsize=12, fontweight='bold')
@@ -451,12 +473,10 @@ class AudioSeparationApp:
         ax.set_title(f'MFCC Heatmap: {filename}\n({n_mfcc} coeffs × {n_frames} frames)', 
                     fontsize=13, fontweight='bold', pad=12)
         
-        # Add colorbar with better label
         cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
         cbar.set_label('MFCC Value', fontsize=11)
         cbar.ax.tick_params(labelsize=9)
         
-        # Grid for easier reading
         ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='white')
         
         fig.tight_layout()
@@ -475,16 +495,21 @@ class AudioSeparationApp:
         im = ax.imshow(lpc_features.T, aspect='auto', origin='lower',
                       cmap='plasma', interpolation='nearest')
         
-        # Better X-axis: show time in seconds  
+        # Set proper limits to avoid white space
+        ax.set_xlim(-0.5, n_frames - 0.5)
+        ax.set_ylim(-0.5, order - 0.5)
+        
+        # X-axis: time in seconds  
         hop_length = 160
         sr = 16000
-        frame_rate = sr / hop_length  # ~100 frames/second
-        time_ticks = ax.get_xticks()
-        time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < n_frames]
-        ax.set_xticks(time_ticks[:len(time_labels)])
-        ax.set_xticklabels(time_labels)
+        frame_rate = sr / hop_length
+        n_xticks = min(8, n_frames)
+        xtick_positions = np.linspace(0, n_frames - 1, n_xticks)
+        xtick_labels = [f'{t/frame_rate:.2f}s' for t in xtick_positions]
+        ax.set_xticks(xtick_positions)
+        ax.set_xticklabels(xtick_labels)
         
-        # Better Y-axis: show LPC coefficient numbers
+        # Y-axis: show LPC coefficient numbers
         ax.set_yticks(range(order))
         ax.set_yticklabels([f'a{i+1}' for i in range(order)])
         
@@ -493,12 +518,10 @@ class AudioSeparationApp:
         ax.set_title(f'LPC Heatmap: {filename}\n({order} coeffs × {n_frames} frames)', 
                     fontsize=13, fontweight='bold', pad=12)
         
-        # Add colorbar with better label
         cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
         cbar.set_label('Coefficient Value', fontsize=11)
         cbar.ax.tick_params(labelsize=9)
         
-        # Grid
         ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='white')
         
         fig.tight_layout()
@@ -515,39 +538,43 @@ class AudioSeparationApp:
         
         # STFT returns complex values, take magnitude and convert to dB
         magnitude = np.abs(stft_matrix)
-        magnitude_db = 20 * np.log10(magnitude + 1e-10)  # Add small value to avoid log(0)
+        magnitude_db = 20 * np.log10(magnitude + 1e-10)
         
         # Plot spectrogram
         im = ax.imshow(magnitude_db, aspect='auto', origin='lower',
                       cmap='inferno', interpolation='nearest', vmin=-60, vmax=0)
         
-        # Better X-axis: show time in seconds
-        hop_length = 256  # Default STFT hop
-        frame_rate = sr / hop_length
-        time_ticks = ax.get_xticks()
-        time_labels = [f'{t/frame_rate:.2f}s' for t in time_ticks if 0 <= t < time_frames]
-        ax.set_xticks(time_ticks[:len(time_labels)])
-        ax.set_xticklabels(time_labels)
+        # Set proper limits to avoid white space
+        ax.set_xlim(-0.5, time_frames - 0.5)
+        ax.set_ylim(-0.5, freq_bins - 0.5)
         
-        # Better Y-axis: show frequency in Hz
-        n_fft = 512  # Default
+        # X-axis: time in seconds
+        hop_length = 256
+        frame_rate = sr / hop_length
+        n_xticks = min(8, time_frames)
+        xtick_positions = np.linspace(0, time_frames - 1, n_xticks)
+        xtick_labels = [f'{t/frame_rate:.2f}s' for t in xtick_positions]
+        ax.set_xticks(xtick_positions)
+        ax.set_xticklabels(xtick_labels)
+        
+        # Y-axis: frequency in Hz
+        n_fft = 512
         freq_resolution = sr / n_fft
-        freq_ticks = ax.get_yticks()
-        freq_labels = [f'{int(t * freq_resolution)}Hz' for t in freq_ticks if 0 <= t < freq_bins]
-        ax.set_yticks(freq_ticks[:len(freq_labels)])
-        ax.set_yticklabels(freq_labels)
+        n_yticks = min(6, freq_bins)
+        ytick_positions = np.linspace(0, freq_bins - 1, n_yticks)
+        ytick_labels = [f'{int(t * freq_resolution)}Hz' for t in ytick_positions]
+        ax.set_yticks(ytick_positions)
+        ax.set_yticklabels(ytick_labels)
         
         ax.set_xlabel('Time (seconds)', fontsize=12, fontweight='bold')
         ax.set_ylabel('Frequency (Hz)', fontsize=12, fontweight='bold')
         ax.set_title(f'STFT Spectrogram: {filename}\n({freq_bins} bins × {time_frames} frames)', 
                     fontsize=13, fontweight='bold', pad=12)
         
-        # Add colorbar with better range
         cbar = fig.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
         cbar.set_label('Power (dB)', fontsize=11)
         cbar.ax.tick_params(labelsize=9)
         
-        # Grid
         ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5, color='white')
         
         fig.tight_layout()
