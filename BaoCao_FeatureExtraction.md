@@ -422,27 +422,21 @@ Trong đó:
 
 Đây là **thuật toán then chốt** của LPC. Nó giải hệ phương trình **Toeplitz** (hệ phương trình Yule-Walker):
 
-$$
-\begin{bmatrix}
-R[0] & R[1] & \cdots & R[p-1] \\
-R[1] & R[0] & \cdots & R[p-2] \\
-\vdots & \vdots & \ddots & \vdots \\
-R[p-1] & R[p-2] & \cdots & R[0]
-\end{bmatrix}
-\begin{bmatrix}
-a_1 \\
-a_2 \\
-\vdots \\
-a_p
-\end{bmatrix}
-=
-\begin{bmatrix}
-R[1] \\
-R[2] \\
-\vdots \\
-R[p]
-\end{bmatrix}
-$$
+**Hệ phương trình:** `R · a = r`
+
+Trong đó:
+- **R** là ma trận Toeplitz đối xứng kích thước `p × p`:
+  - Đường chéo chính: `R[0]` (năng lượng)
+  - Các đường chéo phụ: `R[1], R[2], ..., R[p-1]`
+- **a** là vector hệ số LPC cần tìm: `[a₁, a₂, ..., aₚ]`
+- **r** là vector tự tương quan: `[R[1], R[2], ..., R[p]]`
+
+**Ví dụ với p=3:**
+```
+┌ R[0]  R[1]  R[2] ┐   ┌ a₁ ┐   ┌ R[1] ┐
+│ R[1]  R[0]  R[1] │ × │ a₂ │ = │ R[2] │
+└ R[2]  R[1]  R[0] ┘   └ a₃ ┘   └ R[3] ┘
+```
 
 **Tại sao không dùng phép nghịch đảo ma trận trực tiếp?**
 
